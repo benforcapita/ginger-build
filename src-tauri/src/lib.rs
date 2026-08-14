@@ -1,4 +1,5 @@
 mod action;
+mod agent;
 mod editor;
 mod git;
 mod persistence;
@@ -8,6 +9,7 @@ mod terminal;
 mod workspace;
 
 use action::ActionRegistry;
+use agent::{commands as agent_commands, AgentSupervisor};
 use editor::{commands as editor_commands, NeovimHost};
 use git::{commands as git_commands, GitService};
 use persistence::PersistenceService;
@@ -37,38 +39,30 @@ pub fn run() {
         .setup(|app| {
             let handle = app.handle().clone();
 
-            // Initialize persistence
             let persistence = PersistenceService::new(&handle)?;
             app.manage(persistence);
 
-            // Initialize platform services
             let platform = PlatformService::new(&handle)?;
             app.manage(platform);
 
-            // Initialize Ginger presence
             let presence = GingerPresence::new();
             app.manage(presence);
 
-            // Initialize Action Registry
             let registry = ActionRegistry::new();
             action::register_core_actions(&registry);
             app.manage(registry);
 
-            // Initialize Neovim host (not started yet)
             let runtime_path = persistence.data_root().join("runtime");
             let host = tokio::sync::Mutex::new(NeovimHost::new(runtime_path));
             app.manage(host);
 
-            // Initialize workspace service
             let workspace_svc = WorkspaceService::new();
             app.manage(workspace_svc);
 
-            // Initialize terminal host
             let (output_tx, mut output_rx) = tokio::sync::mpsc::channel(1024);
             let terminal_host = TerminalHost::new(output_tx);
             app.manage(terminal_host);
 
-            // Forward terminal output to frontend via Tauri events
             let app_handle = app.handle().clone();
             tokio::spawn(async move {
                 while let Some(output) = output_rx.recv().await {
@@ -76,14 +70,15 @@ pub fn run() {
                 }
             });
 
-            // Initialize Git service
             let git_svc = GitService::new();
             app.manage(git_svc);
 
-            // Run database migrations
+            let agent_sup = AgentSupervisor::new(3);
+            app.manage(agent_sup);
+
             if let Some(p) = app.try_state::<PersistenceService>() {
                 if let Err(e) = p.migrate() {
-                    tracing::warn!("Migration failed (non-fatal for first run): {e}");
+                    tracing::warn!("Migration failed (non-fatal): {e}");
                 }
             }
 
@@ -115,6 +110,13 @@ pub fn run() {
             git_commands::git_diff,
             git_commands::git_apply_patch,
             git_commands::git_cherry_pick,
+            agent_commands::agent_create,
+            agent_commands::agent_start,
+            agent_commands::agent_complete,
+            agent_commands::agent_get,
+            agent_commands::agent_list,
+            agent_commands::agent_remove,
+            agent_commands::agent_active_count,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Ginger Code");
