@@ -10,6 +10,7 @@ mod persistence;
 mod platform;
 mod presence;
 mod recovery;
+mod stabilization;
 mod terminal;
 mod verification;
 mod workspace;
@@ -26,6 +27,7 @@ use persistence::PersistenceService;
 use platform::PlatformService;
 use presence::{commands as presence_commands, GingerPresence};
 use recovery::{commands as recovery_commands, RecoveryService};
+use stabilization::{commands as stabilization_commands};
 use terminal::{commands as terminal_commands, TerminalHost};
 use verification::{commands as verification_commands, VerificationService};
 use workspace::{commands as workspace_commands, WorkspaceService};
@@ -138,7 +140,7 @@ pub fn run() {
                 }
             }
 
-            tracing::info!("Ginger Code initialized successfully");
+            tracing::info!("Ginger Code v0.1.0 initialized — all 15 slices wired");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -155,6 +157,7 @@ pub fn run() {
             presence_commands::presence_state, presence_commands::presence_set_state, presence_commands::presence_config, presence_commands::presence_set_config, presence_commands::presence_message, presence_commands::presence_toggle_commentary, presence_commands::presence_cycle_personality,
             recovery_commands::recovery_heartbeat, recovery_commands::recovery_is_stale, recovery_commands::recovery_safe_mode, recovery_commands::recovery_enter_safe_mode, recovery_commands::recovery_exit_safe_mode, recovery_commands::recovery_run,
             packaging_commands::packaging_version, packaging_commands::packaging_set_version, packaging_commands::packaging_validate_update,
+            stabilization_commands::e2e_tests, stabilization_commands::e2e_verify_wiring,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Ginger Code");
