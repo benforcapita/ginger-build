@@ -1,5 +1,6 @@
 mod action;
 mod agent;
+mod detection;
 mod diff;
 mod editor;
 mod git;
@@ -13,6 +14,7 @@ mod workspace;
 
 use action::ActionRegistry;
 use agent::{commands as agent_commands, AgentSupervisor};
+use detection::{commands as detection_commands, ProjectScanner};
 use diff::{commands as diff_commands, ReviewService};
 use editor::{commands as editor_commands, NeovimHost};
 use git::{commands as git_commands, GitService};
@@ -93,6 +95,9 @@ pub fn run() {
             init_curated_catalog(&pkg_mgr);
             app.manage(pkg_mgr);
 
+            let scanner = ProjectScanner::new();
+            app.manage(scanner);
+
             if let Some(p) = app.try_state::<PersistenceService>() {
                 if let Err(e) = p.migrate() {
                     tracing::warn!("Migration failed (non-fatal): {e}");
@@ -112,6 +117,7 @@ pub fn run() {
             diff_commands::diff_parse, diff_commands::diff_get, diff_commands::diff_check_conflict, diff_commands::diff_build_patch, diff_commands::diff_apply,
             verification_commands::verification_run, verification_commands::verification_suggest,
             package_commands::package_list_catalog, package_commands::package_search, package_commands::package_get, package_commands::package_install,
+            detection_commands::detection_scan, detection_commands::detection_recommend,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Ginger Code");
