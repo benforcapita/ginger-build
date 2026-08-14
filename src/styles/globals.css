@@ -47,3 +47,5 @@ html, body, #root {
 }
 
 .app-bottom.visible { display: flex; }
+
+@import './components.css';
