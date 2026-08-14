@@ -3,6 +3,7 @@ mod agent;
 mod diff;
 mod editor;
 mod git;
+mod package;
 mod persistence;
 mod platform;
 mod presence;
@@ -15,6 +16,7 @@ use agent::{commands as agent_commands, AgentSupervisor};
 use diff::{commands as diff_commands, ReviewService};
 use editor::{commands as editor_commands, NeovimHost};
 use git::{commands as git_commands, GitService};
+use package::{commands as package_commands, PackageManager, init_curated_catalog};
 use persistence::PersistenceService;
 use platform::PlatformService;
 use presence::GingerPresence;
@@ -86,6 +88,11 @@ pub fn run() {
             let verify_svc = VerificationService::new();
             app.manage(verify_svc);
 
+            let pkg_cache = persistence.data_root().join("cache").join("packages");
+            let pkg_mgr = PackageManager::new(pkg_cache);
+            init_curated_catalog(&pkg_mgr);
+            app.manage(pkg_mgr);
+
             if let Some(p) = app.try_state::<PersistenceService>() {
                 if let Err(e) = p.migrate() {
                     tracing::warn!("Migration failed (non-fatal): {e}");
@@ -96,44 +103,15 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            action::invoke_action,
-            action::list_actions,
-            action::get_action_context,
-            editor_commands::editor_start,
-            editor_commands::editor_stop,
-            editor_commands::editor_status,
-            workspace_commands::workspace_open,
-            workspace_commands::workspace_close,
-            workspace_commands::workspace_status,
-            workspace_commands::workspace_set_pane_state,
-            terminal_commands::terminal_create,
-            terminal_commands::terminal_write,
-            terminal_commands::terminal_resize,
-            terminal_commands::terminal_terminate,
-            terminal_commands::terminal_list,
-            git_commands::git_status,
-            git_commands::git_is_repo,
-            git_commands::git_branch,
-            git_commands::git_create_worktree,
-            git_commands::git_remove_worktree,
-            git_commands::git_head_revision,
-            git_commands::git_diff,
-            git_commands::git_apply_patch,
-            git_commands::git_cherry_pick,
-            agent_commands::agent_create,
-            agent_commands::agent_start,
-            agent_commands::agent_complete,
-            agent_commands::agent_get,
-            agent_commands::agent_list,
-            agent_commands::agent_remove,
-            agent_commands::agent_active_count,
-            diff_commands::diff_parse,
-            diff_commands::diff_get,
-            diff_commands::diff_check_conflict,
-            diff_commands::diff_build_patch,
-            diff_commands::diff_apply,
-            verification_commands::verification_run,
-            verification_commands::verification_suggest,
+            action::invoke_action, action::list_actions, action::get_action_context,
+            editor_commands::editor_start, editor_commands::editor_stop, editor_commands::editor_status,
+            workspace_commands::workspace_open, workspace_commands::workspace_close, workspace_commands::workspace_status, workspace_commands::workspace_set_pane_state,
+            terminal_commands::terminal_create, terminal_commands::terminal_write, terminal_commands::terminal_resize, terminal_commands::terminal_terminate, terminal_commands::terminal_list,
+            git_commands::git_status, git_commands::git_is_repo, git_commands::git_branch, git_commands::git_create_worktree, git_commands::git_remove_worktree, git_commands::git_head_revision, git_commands::git_diff, git_commands::git_apply_patch, git_commands::git_cherry_pick,
+            agent_commands::agent_create, agent_commands::agent_start, agent_commands::agent_complete, agent_commands::agent_get, agent_commands::agent_list, agent_commands::agent_remove, agent_commands::agent_active_count,
+            diff_commands::diff_parse, diff_commands::diff_get, diff_commands::diff_check_conflict, diff_commands::diff_build_patch, diff_commands::diff_apply,
+            verification_commands::verification_run, verification_commands::verification_suggest,
+            package_commands::package_list_catalog, package_commands::package_search, package_commands::package_get, package_commands::package_install,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Ginger Code");
