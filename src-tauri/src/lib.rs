@@ -8,6 +8,7 @@ mod package;
 mod persistence;
 mod platform;
 mod presence;
+mod recovery;
 mod terminal;
 mod verification;
 mod workspace;
@@ -22,6 +23,7 @@ use package::{commands as package_commands, PackageManager, init_curated_catalog
 use persistence::PersistenceService;
 use platform::PlatformService;
 use presence::{commands as presence_commands, GingerPresence};
+use recovery::{commands as recovery_commands, RecoveryService};
 use terminal::{commands as terminal_commands, TerminalHost};
 use verification::{commands as verification_commands, VerificationService};
 use workspace::{commands as workspace_commands, WorkspaceService};
@@ -98,6 +100,29 @@ pub fn run() {
             let scanner = ProjectScanner::new();
             app.manage(scanner);
 
+            let recovery_svc = RecoveryService::new();
+
+            // Check for stale heartbeat on startup
+            if recovery_svc.is_stale() {
+                tracing::warn!("Stale heartbeat detected — running recovery");
+                let report = recovery_svc.recover(persistence.data_root());
+                if report.safe_mode {
+                    recovery_svc.enter_safe_mode();
+                }
+            }
+            app.manage(recovery_svc);
+
+            // Start heartbeat loop
+            let app_handle = app.handle().clone();
+            tokio::spawn(async move {
+                loop {
+                    if let Some(svc) = app_handle.try_state::<RecoveryService>() {
+                        svc.heartbeat();
+                    }
+                    tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                }
+            });
+
             if let Some(p) = app.try_state::<PersistenceService>() {
                 if let Err(e) = p.migrate() {
                     tracing::warn!("Migration failed (non-fatal): {e}");
@@ -118,10 +143,8 @@ pub fn run() {
             verification_commands::verification_run, verification_commands::verification_suggest,
             package_commands::package_list_catalog, package_commands::package_search, package_commands::package_get, package_commands::package_install,
             detection_commands::detection_scan, detection_commands::detection_recommend,
-            presence_commands::presence_state, presence_commands::presence_set_state,
-            presence_commands::presence_config, presence_commands::presence_set_config,
-            presence_commands::presence_message, presence_commands::presence_toggle_commentary,
-            presence_commands::presence_cycle_personality,
+            presence_commands::presence_state, presence_commands::presence_set_state, presence_commands::presence_config, presence_commands::presence_set_config, presence_commands::presence_message, presence_commands::presence_toggle_commentary, presence_commands::presence_cycle_personality,
+            recovery_commands::recovery_heartbeat, recovery_commands::recovery_is_stale, recovery_commands::recovery_safe_mode, recovery_commands::recovery_enter_safe_mode, recovery_commands::recovery_exit_safe_mode, recovery_commands::recovery_run,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Ginger Code");
