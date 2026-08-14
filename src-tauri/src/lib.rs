@@ -7,6 +7,7 @@ mod persistence;
 mod platform;
 mod presence;
 mod terminal;
+mod verification;
 mod workspace;
 
 use action::ActionRegistry;
@@ -18,6 +19,7 @@ use persistence::PersistenceService;
 use platform::PlatformService;
 use presence::GingerPresence;
 use terminal::{commands as terminal_commands, TerminalHost};
+use verification::{commands as verification_commands, VerificationService};
 use workspace::{commands as workspace_commands, WorkspaceService};
 
 use tauri::Manager;
@@ -81,6 +83,9 @@ pub fn run() {
             let review_svc = ReviewService::new();
             app.manage(review_svc);
 
+            let verify_svc = VerificationService::new();
+            app.manage(verify_svc);
+
             if let Some(p) = app.try_state::<PersistenceService>() {
                 if let Err(e) = p.migrate() {
                     tracing::warn!("Migration failed (non-fatal): {e}");
@@ -127,6 +132,8 @@ pub fn run() {
             diff_commands::diff_check_conflict,
             diff_commands::diff_build_patch,
             diff_commands::diff_apply,
+            verification_commands::verification_run,
+            verification_commands::verification_suggest,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Ginger Code");
