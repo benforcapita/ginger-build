@@ -3,6 +3,7 @@ mod editor;
 mod persistence;
 mod platform;
 mod presence;
+mod terminal;
 mod workspace;
 
 use action::ActionRegistry;
@@ -10,6 +11,7 @@ use editor::{commands as editor_commands, NeovimHost};
 use persistence::PersistenceService;
 use platform::PlatformService;
 use presence::GingerPresence;
+use terminal::{commands as terminal_commands, TerminalHost};
 use workspace::{commands as workspace_commands, WorkspaceService};
 
 use tauri::Manager;
@@ -59,6 +61,19 @@ pub fn run() {
             let workspace_svc = WorkspaceService::new();
             app.manage(workspace_svc);
 
+            // Initialize terminal host
+            let (output_tx, mut output_rx) = tokio::sync::mpsc::channel(1024);
+            let terminal_host = TerminalHost::new(output_tx);
+            app.manage(terminal_host);
+
+            // Forward terminal output to frontend via Tauri events
+            let app_handle = app.handle().clone();
+            tokio::spawn(async move {
+                while let Some(output) = output_rx.recv().await {
+                    let _ = app_handle.emit("terminal_output", &output);
+                }
+            });
+
             // Run database migrations
             if let Some(p) = app.try_state::<PersistenceService>() {
                 if let Err(e) = p.migrate() {
@@ -80,6 +95,11 @@ pub fn run() {
             workspace_commands::workspace_close,
             workspace_commands::workspace_status,
             workspace_commands::workspace_set_pane_state,
+            terminal_commands::terminal_create,
+            terminal_commands::terminal_write,
+            terminal_commands::terminal_resize,
+            terminal_commands::terminal_terminate,
+            terminal_commands::terminal_list,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Ginger Code");
