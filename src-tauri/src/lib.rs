@@ -1,9 +1,11 @@
 mod action;
+mod editor;
 mod persistence;
 mod platform;
 mod presence;
 
 use action::ActionRegistry;
+use editor::{commands as editor_commands, NeovimHost};
 use persistence::PersistenceService;
 use platform::PlatformService;
 use presence::GingerPresence;
@@ -46,6 +48,11 @@ pub fn run() {
             action::register_core_actions(&registry);
             app.manage(registry);
 
+            // Initialize Neovim host (not started yet)
+            let runtime_path = persistence.data_root().join("runtime");
+            let host = tokio::sync::Mutex::new(NeovimHost::new(runtime_path));
+            app.manage(host);
+
             tracing::info!("Ginger Code initialized successfully");
             Ok(())
         })
@@ -53,6 +60,9 @@ pub fn run() {
             action::invoke_action,
             action::list_actions,
             action::get_action_context,
+            editor_commands::editor_start,
+            editor_commands::editor_stop,
+            editor_commands::editor_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Ginger Code");

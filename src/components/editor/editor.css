@@ -1,0 +1,48 @@
+.editor {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  min-width: 0;
+}
+
+.editor-placeholder,
+.editor-active {
+  text-align: center;
+  color: var(--fg-muted);
+}
+
+.editor-placeholder p,
+.editor-active p {
+  margin: 4px 0;
+}
+
+.editor-hint {
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.editor-start-btn {
+  margin-top: 12px;
+  padding: 6px 16px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.editor-start-btn:hover {
+  opacity: 0.9;
+}
+
+.editor-start-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.editor-warning {
+  color: var(--warning);
+}
