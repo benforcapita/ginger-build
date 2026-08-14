@@ -1,0 +1,49 @@
+.ginger-mascot {
+  position: relative;
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.1;
+}
+
+.ginger-ascii {
+  margin: 0;
+  color: var(--accent);
+  white-space: pre;
+}
+
+.ginger-state-idle .ginger-ascii { color: var(--fg-muted); }
+.ginger-state-coding .ginger-ascii { color: var(--accent); }
+.ginger-state-testing .ginger-ascii { color: var(--warning); }
+.ginger-state-success .ginger-ascii { color: var(--success); }
+.ginger-state-failure .ginger-ascii { color: var(--danger); }
+.ginger-state-warning .ginger-ascii { color: var(--warning); }
+.ginger-state-reviewing .ginger-ascii { color: #a78bfa; }
+
+.ginger-bubble {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--fg);
+  white-space: nowrap;
+  max-width: 250px;
+  white-space: normal;
+  text-align: center;
+  animation: ginger-pop 0.3s ease;
+  margin-bottom: 4px;
+}
+
+.ginger-bubble-full { width: 250px; }
+.ginger-bubble-medium { width: 200px; }
+.ginger-bubble-compact { width: 150px; font-size: 10px; }
+
+@keyframes ginger-pop {
+  0% { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+}

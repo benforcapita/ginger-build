@@ -21,7 +21,7 @@ use git::{commands as git_commands, GitService};
 use package::{commands as package_commands, PackageManager, init_curated_catalog};
 use persistence::PersistenceService;
 use platform::PlatformService;
-use presence::GingerPresence;
+use presence::{commands as presence_commands, GingerPresence};
 use terminal::{commands as terminal_commands, TerminalHost};
 use verification::{commands as verification_commands, VerificationService};
 use workspace::{commands as workspace_commands, WorkspaceService};
@@ -118,6 +118,10 @@ pub fn run() {
             verification_commands::verification_run, verification_commands::verification_suggest,
             package_commands::package_list_catalog, package_commands::package_search, package_commands::package_get, package_commands::package_install,
             detection_commands::detection_scan, detection_commands::detection_recommend,
+            presence_commands::presence_state, presence_commands::presence_set_state,
+            presence_commands::presence_config, presence_commands::presence_set_config,
+            presence_commands::presence_message, presence_commands::presence_toggle_commentary,
+            presence_commands::presence_cycle_personality,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Ginger Code");
