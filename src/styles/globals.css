@@ -1,0 +1,49 @@
+:root {
+  --bg: #1a1612;
+  --bg-surface: #211c17;
+  --bg-elevated: #2a231d;
+  --border: #3a3128;
+  --fg: #e8e0d4;
+  --fg-muted: #9a8f80;
+  --accent: #d97706;
+  --accent-glow: rgba(217, 119, 6, 0.15);
+  --success: #4ade80;
+  --danger: #ef4444;
+  --warning: #facc15;
+  --font-mono: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  --font-sans: -apple-system, "SF Pro Text", system-ui, sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: 13px;
+}
+
+.app {
+  display: grid;
+  grid-template-rows: 1fr auto auto;
+  grid-template-columns: auto 1fr;
+  height: 100vh;
+}
+
+.app-body {
+  display: flex;
+  flex-direction: row;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app-bottom {
+  height: 240px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-surface);
+  display: none;
+}
+
+.app-bottom.visible { display: flex; }
