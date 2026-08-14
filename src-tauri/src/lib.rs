@@ -3,12 +3,14 @@ mod editor;
 mod persistence;
 mod platform;
 mod presence;
+mod workspace;
 
 use action::ActionRegistry;
 use editor::{commands as editor_commands, NeovimHost};
 use persistence::PersistenceService;
 use platform::PlatformService;
 use presence::GingerPresence;
+use workspace::{commands as workspace_commands, WorkspaceService};
 
 use tauri::Manager;
 
@@ -53,6 +55,17 @@ pub fn run() {
             let host = tokio::sync::Mutex::new(NeovimHost::new(runtime_path));
             app.manage(host);
 
+            // Initialize workspace service
+            let workspace_svc = WorkspaceService::new();
+            app.manage(workspace_svc);
+
+            // Run database migrations
+            if let Some(p) = app.try_state::<PersistenceService>() {
+                if let Err(e) = p.migrate() {
+                    tracing::warn!("Migration failed (non-fatal for first run): {e}");
+                }
+            }
+
             tracing::info!("Ginger Code initialized successfully");
             Ok(())
         })
@@ -63,6 +76,10 @@ pub fn run() {
             editor_commands::editor_start,
             editor_commands::editor_stop,
             editor_commands::editor_status,
+            workspace_commands::workspace_open,
+            workspace_commands::workspace_close,
+            workspace_commands::workspace_status,
+            workspace_commands::workspace_set_pane_state,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Ginger Code");
