@@ -1,5 +1,6 @@
 mod action;
 mod editor;
+mod git;
 mod persistence;
 mod platform;
 mod presence;
@@ -8,6 +9,7 @@ mod workspace;
 
 use action::ActionRegistry;
 use editor::{commands as editor_commands, NeovimHost};
+use git::{commands as git_commands, GitService};
 use persistence::PersistenceService;
 use platform::PlatformService;
 use presence::GingerPresence;
@@ -74,6 +76,10 @@ pub fn run() {
                 }
             });
 
+            // Initialize Git service
+            let git_svc = GitService::new();
+            app.manage(git_svc);
+
             // Run database migrations
             if let Some(p) = app.try_state::<PersistenceService>() {
                 if let Err(e) = p.migrate() {
@@ -100,6 +106,15 @@ pub fn run() {
             terminal_commands::terminal_resize,
             terminal_commands::terminal_terminate,
             terminal_commands::terminal_list,
+            git_commands::git_status,
+            git_commands::git_is_repo,
+            git_commands::git_branch,
+            git_commands::git_create_worktree,
+            git_commands::git_remove_worktree,
+            git_commands::git_head_revision,
+            git_commands::git_diff,
+            git_commands::git_apply_patch,
+            git_commands::git_cherry_pick,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Ginger Code");
