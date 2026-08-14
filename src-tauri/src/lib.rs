@@ -5,6 +5,7 @@ mod diff;
 mod editor;
 mod git;
 mod package;
+mod packaging;
 mod persistence;
 mod platform;
 mod presence;
@@ -20,6 +21,7 @@ use diff::{commands as diff_commands, ReviewService};
 use editor::{commands as editor_commands, NeovimHost};
 use git::{commands as git_commands, GitService};
 use package::{commands as package_commands, PackageManager, init_curated_catalog};
+use packaging::{commands as packaging_commands, PackagingService, AppVersion};
 use persistence::PersistenceService;
 use platform::PlatformService;
 use presence::{commands as presence_commands, GingerPresence};
@@ -100,9 +102,17 @@ pub fn run() {
             let scanner = ProjectScanner::new();
             app.manage(scanner);
 
-            let recovery_svc = RecoveryService::new();
+            let packaging_svc = PackagingService::new(persistence.data_root().clone());
+            packaging_svc.set_version(AppVersion {
+                app_version: "0.1.0".into(),
+                runtime_version: "0.1.0".into(),
+                neovim_version: "bundled".into(),
+                catalog_version: "1".into(),
+                build_date: chrono::Utc::now().to_rfc3339(),
+            });
+            app.manage(packaging_svc);
 
-            // Check for stale heartbeat on startup
+            let recovery_svc = RecoveryService::new();
             if recovery_svc.is_stale() {
                 tracing::warn!("Stale heartbeat detected — running recovery");
                 let report = recovery_svc.recover(persistence.data_root());
@@ -112,7 +122,6 @@ pub fn run() {
             }
             app.manage(recovery_svc);
 
-            // Start heartbeat loop
             let app_handle = app.handle().clone();
             tokio::spawn(async move {
                 loop {
@@ -145,6 +154,7 @@ pub fn run() {
             detection_commands::detection_scan, detection_commands::detection_recommend,
             presence_commands::presence_state, presence_commands::presence_set_state, presence_commands::presence_config, presence_commands::presence_set_config, presence_commands::presence_message, presence_commands::presence_toggle_commentary, presence_commands::presence_cycle_personality,
             recovery_commands::recovery_heartbeat, recovery_commands::recovery_is_stale, recovery_commands::recovery_safe_mode, recovery_commands::recovery_enter_safe_mode, recovery_commands::recovery_exit_safe_mode, recovery_commands::recovery_run,
+            packaging_commands::packaging_version, packaging_commands::packaging_set_version, packaging_commands::packaging_validate_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Ginger Code");
