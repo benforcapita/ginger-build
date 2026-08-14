@@ -1,5 +1,6 @@
 mod action;
 mod agent;
+mod diff;
 mod editor;
 mod git;
 mod persistence;
@@ -10,6 +11,7 @@ mod workspace;
 
 use action::ActionRegistry;
 use agent::{commands as agent_commands, AgentSupervisor};
+use diff::{commands as diff_commands, ReviewService};
 use editor::{commands as editor_commands, NeovimHost};
 use git::{commands as git_commands, GitService};
 use persistence::PersistenceService;
@@ -76,6 +78,9 @@ pub fn run() {
             let agent_sup = AgentSupervisor::new(3);
             app.manage(agent_sup);
 
+            let review_svc = ReviewService::new();
+            app.manage(review_svc);
+
             if let Some(p) = app.try_state::<PersistenceService>() {
                 if let Err(e) = p.migrate() {
                     tracing::warn!("Migration failed (non-fatal): {e}");
@@ -117,6 +122,11 @@ pub fn run() {
             agent_commands::agent_list,
             agent_commands::agent_remove,
             agent_commands::agent_active_count,
+            diff_commands::diff_parse,
+            diff_commands::diff_get,
+            diff_commands::diff_check_conflict,
+            diff_commands::diff_build_patch,
+            diff_commands::diff_apply,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Ginger Code");
