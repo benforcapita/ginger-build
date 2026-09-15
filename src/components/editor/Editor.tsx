@@ -1,62 +1,17 @@
-import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-
-interface EditorStatus {
-  alive: boolean;
-  runtime_path: string;
-  safe_mode: boolean;
-}
-
+import { useSessionStore } from "@/stores/session-store";
+import { SessionTabs } from "@/components/terminal/SessionTabs";
 export function Editor() {
-  const [status, setStatus] = useState<EditorStatus | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    invoke<EditorStatus>("editor_status")
-      .then(setStatus)
-      .catch(() => setStatus(null));
-  }, []);
-
-  const startEditor = async () => {
-    setLoading(true);
-    try {
-      await invoke("editor_start");
-      const s = await invoke<EditorStatus>("editor_status");
-      setStatus(s);
-    } catch (e) {
-      console.error("Failed to start editor:", e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!status || !status.alive) {
-    return (
-      <div className="editor">
-        <div className="editor-placeholder">
-          <p>Neovim not connected</p>
-          <button
-            className="editor-start-btn"
-            onClick={startEditor}
-            disabled={loading}
-          >
-            {loading ? "Starting..." : "Start Neovim"}
-          </button>
-          <p className="editor-hint">Or open a folder to begin</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="editor">
-      <div className="editor-active">
-        <p>Neovim connected</p>
-        <p className="editor-hint">Runtime: {status.runtime_path}</p>
-        {status.safe_mode && (
-          <p className="editor-warning">⚠️ Safe Mode — user Lua disabled</p>
-        )}
-      </div>
-    </div>
-  );
+  const sessions = useSessionStore((s) => s.sessions);
+  const active = useSessionStore((s) => s.active.editor);
+  const editor = sessions.find((s) => s.id === active);
+  return <section className="editor-panel" aria-label="Neovim editor">
+    <header className="panel-header"><span><span className="accent">N</span> NEOVIM</span><span className="muted">your editor. your muscle memory.</span></header>
+    {sessions.some((s) => s.kind === "editor") ? <SessionTabs kind="editor" /> : <div className="editor-welcome">
+      <div className="vim-mark">[ <span>vim</span> ]</div>
+      <h2>A little less clicking.<br />A little more building.</h2>
+      <p>Pick a file from the tree to open Neovim.<br />Real Vim motions. Your config. No imitation.</p>
+      <div className="vim-keys"><span><kbd>i</kbd> insert</span><span><kbd>:w</kbd> save</span><span><kbd>:q</kbd> quit</span></div>
+    </div>}
+    <footer className="editor-footer"><span>{editor?.path ?? "No file open"}</span><span>{editor ? editor.exited ? "EXITED" : "NEOVIM" : "READY"}</span></footer>
+  </section>;
 }

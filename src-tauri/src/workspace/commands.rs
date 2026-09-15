@@ -51,3 +51,7 @@ pub fn workspace_set_pane_state(
     svc.set_pane_state(state);
     Ok(())
 }
+#[tauri::command]
+pub fn workspace_list_directory(svc: State<'_, WorkspaceService>, path: String) -> Result<Vec<crate::workspace::FileEntry>, String> {
+    svc.list_directory(&path).map_err(|e| e.to_string())
+}

@@ -1,10 +1,11 @@
+pub mod commands;
 // Ginger Code — Git Service
 // Wraps git executable behind a strict Rust service.
 // Repository mutations use an async repository lock; reads may run concurrently.
 
 use std::path::PathBuf;
 use std::sync::Arc;
-use parking_lot::Mutex;
+use tokio::sync::Mutex;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::process::Command;
@@ -107,7 +108,7 @@ impl GitService {
                     let c = s.chars().nth(1).unwrap();
                     unstaged.push(FileChange { path, status: c.to_string(), staged: false });
                 }
-                _ => {
+                s => {
                     // Mixed staged/unstaged
                     let staged_c = s.chars().next().unwrap();
                     let unstaged_c = s.chars().nth(1).unwrap();
@@ -133,7 +134,7 @@ impl GitService {
         worktree_path: &PathBuf,
         branch: &str,
     ) -> Result<(), GitError> {
-        let _lock = self.repo_lock.lock();
+        let _lock = self.repo_lock.lock().await;
         self.run_git(repo, &[
             "worktree", "add",
             &worktree_path.display().to_string(),
@@ -145,7 +146,7 @@ impl GitService {
 
     /// Remove a worktree.
     pub async fn remove_worktree(&self, repo: &PathBuf, worktree_path: &PathBuf) -> Result<(), GitError> {
-        let _lock = self.repo_lock.lock();
+        let _lock = self.repo_lock.lock().await;
         self.run_git(repo, &["worktree", "remove", "--force", &worktree_path.display().to_string()]).await?;
         Ok(())
     }
@@ -158,9 +159,9 @@ impl GitService {
 
     /// Apply a patch to the repository.
     pub async fn apply_patch(&self, repo: &PathBuf, patch: &str) -> Result<(), GitError> {
-        let _lock = self.repo_lock.lock();
+        let _lock = self.repo_lock.lock().await;
         let git = Self::git_binary()?;
-        let output = Command::new(&git)
+        let mut output = Command::new(&git)
             .args(["apply", "--3way"])
             .current_dir(repo)
             .stdin(std::process::Stdio::piped())
@@ -169,7 +170,7 @@ impl GitService {
             .spawn()
             .map_err(|e| GitError::Git(e.to_string()))?;
 
-        if let Some(mut stdin) = output.stdin {
+        if let Some(mut stdin) = output.stdin.take() {
             use tokio::io::AsyncWriteExt;
             stdin.write_all(patch.as_bytes()).await.ok();
         }
@@ -185,7 +186,7 @@ impl GitService {
 
     /// Cherry-pick a commit from another branch.
     pub async fn cherry_pick(&self, repo: &PathBuf, commit: &str) -> Result<(), GitError> {
-        let _lock = self.repo_lock.lock();
+        let _lock = self.repo_lock.lock().await;
         self.run_git(repo, &["cherry-pick", commit]).await?;
         Ok(())
     }

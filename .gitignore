@@ -27,3 +27,5 @@ Thumbs.db
 
 # Logs
 *.log
+# Generated Tauri schemas
+src-tauri/gen/

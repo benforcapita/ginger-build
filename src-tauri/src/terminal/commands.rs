@@ -67,3 +67,52 @@ pub fn terminal_terminate(
 pub fn terminal_list(host: State<'_, TerminalHost>) -> Vec<TerminalInfo> {
     host.list()
 }
+#[tauri::command]
+pub fn terminal_subscribe(host: State<'_, TerminalHost>, id: u64, on_event: tauri::ipc::Channel<crate::terminal::TerminalEvent>) -> Result<(), String> {
+    host.subscribe(id, on_event).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn terminal_launch(
+    host: State<'_, TerminalHost>,
+    workspace: State<'_, crate::workspace::WorkspaceService>,
+    kind: String,
+    program: Option<String>,
+    args: Option<Vec<String>>,
+    path: Option<String>,
+) -> Result<CreateTerminalResult, String> {
+    let root = workspace.resolve_path("").map_err(|e| e.to_string())?;
+    let id = match kind.as_str() {
+        "editor" => {
+            let relative = path.ok_or("select a file first")?;
+            let file = workspace.resolve_path(&relative).map_err(|e| e.to_string())?;
+            if !file.is_file() { return Err("select a regular file".into()); }
+            let bundled = dirs::home_dir().unwrap_or_default().join(".ginger/runtime/bin/nvim");
+            let executable = if bundled.is_file() { bundled.to_string_lossy().to_string() } else { "nvim".into() };
+            host.launch(&root, &executable, &["--".into(), file.to_string_lossy().to_string()], TerminalOwner::Editor, None)
+        }
+        "agent" => {
+            if host.list().iter().filter(|s| s.owner_type == TerminalOwner::Agent && !s.exited).count() >= 3 {
+                return Err("close an active harness before starting another (maximum 3)".into());
+            }
+            let program = program.ok_or("choose a harness executable")?;
+            host.launch(&root, &program, &args.unwrap_or_default(), TerminalOwner::Agent, None)
+        }
+        "shell" => host.create(&root, None, TerminalOwner::User, None),
+        _ => return Err("unknown session kind".into()),
+    }.map_err(|e| e.to_string())?;
+    Ok(CreateTerminalResult { id })
+}
+
+#[tauri::command]
+pub fn terminal_terminate_all(host: State<'_, TerminalHost>) { host.terminate_all(); }
+
+#[derive(Serialize)]
+pub struct HarnessInfo { pub name: String, pub program: String, pub available: bool }
+
+#[tauri::command]
+pub fn terminal_harnesses() -> Vec<HarnessInfo> {
+    [("Claude Code", "claude"), ("Codex", "codex"), ("OpenCode", "opencode")].into_iter().map(|(name, program)| HarnessInfo {
+        name: name.into(), program: program.into(), available: crate::terminal::resolve_program(program, std::path::Path::new("/")).is_ok(),
+    }).collect()
+}

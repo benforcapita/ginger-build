@@ -1,3 +1,4 @@
+pub mod commands;
 // Ginger Code — Ginger Presence Layer (expanded from stub)
 // Ginger is a UI/presence subsystem, not the business-logic owner.
 // States: idle, listening, thinking, coding, testing, reviewing, success, warning, failure.
@@ -8,7 +9,7 @@ use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum GingerState {
     Idle,
@@ -32,7 +33,7 @@ impl GingerState {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum Personality {
     Standard,
@@ -62,7 +63,7 @@ pub struct GingerMessage {
     pub tier: MessageTier,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum MessageTier {
     Full,    // welcome, major result, empty agent dock
@@ -167,7 +168,7 @@ impl GingerPresence {
         let idx = (chrono::Utc::now().timestamp() as usize) % pool.len();
         let text = pool[idx].clone();
 
-        let tier = match state {
+        let tier = match *state {
             GingerState::Idle | GingerState::Success | GingerState::Failure => MessageTier::Full,
             GingerState::Coding | GingerState::Testing | GingerState::Reviewing => MessageTier::Medium,
             GingerState::Thinking | GingerState::Listening | GingerState::Warning => MessageTier::Compact,

@@ -54,7 +54,7 @@ impl AgentScheduler {
                 task_id,
                 queued_at: now(),
             };
-            self.queue.lock().unwrap().push_back(queued);
+            self.queue.lock().unwrap().push_back(queued.clone());
             Err(queued)
         }
     }
@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn queues_when_at_capacity() {
-        let s = AgentScheduler::new();
+        let mut s = AgentScheduler::new();
         s.set_max_active(1);
         assert!(s.try_start(1, None).is_ok());
         assert!(s.try_start(2, None).is_err());
@@ -109,7 +109,7 @@ mod tests {
 
     #[test]
     fn frees_slot_on_finish() {
-        let s = AgentScheduler::new();
+        let mut s = AgentScheduler::new();
         s.set_max_active(1);
         s.set_auto_start(true);
         s.try_start(1, None).unwrap();

@@ -65,8 +65,8 @@ impl ActionRegistry {
     }
 
     pub fn register(&self, def: ActionDef, handler: ActionHandler) {
-        self.actions.insert(def.id.clone(), def);
         self.handlers.insert(def.id.clone(), handler);
+        self.actions.insert(def.id.clone(), def);
     }
 
     pub fn list(&self) -> Vec<ActionDef> {
@@ -92,7 +92,7 @@ impl Default for ActionRegistry {
 }
 
 pub fn register_core_actions(registry: &ActionRegistry) {
-    let make = |id: &str, title: &str, cat: ActionCategory, kb: Option<&str>, when: Option<&str>| {
+    let make = |id: &'static str, title: &str, cat: ActionCategory, kb: Option<&str>, when: Option<&str>| {
         (ActionDef {
             id: id.into(), title: title.into(), category: cat,
             keybinding: kb.map(String::from), icon: None, when: when.map(String::from),

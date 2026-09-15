@@ -4,7 +4,7 @@ use crate::git::GitService;
 use tauri::State;
 
 #[tauri::command]
-pub async fn diff_parse(
+pub fn diff_parse(
     svc: State<'_, ReviewService>,
     diff: String,
 ) -> Vec<DiffFile> {

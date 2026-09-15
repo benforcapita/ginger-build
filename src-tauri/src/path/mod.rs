@@ -53,26 +53,26 @@ mod tests {
 
     #[test]
     fn rejects_traversal() {
-        let root = Path::new("/tmp/ginger-root");
-        std::fs::create_dir_all(root).unwrap();
-        let escape = PathValidator::safe_join(root, "../etc/passwd");
-        assert!(escape.is_none());
-        std::fs::remove_dir_all(root).unwrap();
+        let sandbox = tempfile::tempdir().unwrap();
+        let root = sandbox.path().join("project");
+        std::fs::create_dir(&root).unwrap();
+        std::fs::write(sandbox.path().join("outside"), "outside").unwrap();
+        assert!(PathValidator::safe_join(&root, "../outside").is_none());
     }
 
     #[test]
     fn accepts_inside_path() {
-        let root = Path::new("/tmp/ginger-root2");
-        std::fs::create_dir_all(root.join("src")).unwrap();
-        let inside = PathValidator::safe_join(root, "src/main.rs");
-        assert!(inside.is_some());
-        std::fs::remove_dir_all(root).unwrap();
+        let sandbox = tempfile::tempdir().unwrap();
+        let root = sandbox.path();
+        std::fs::create_dir(root.join("src")).unwrap();
+        // Canonicalization requires an existing target, not only its parent.
+        std::fs::write(root.join("src/main.rs"), "fn main() {}").unwrap();
+        assert!(PathValidator::safe_join(root, "src/main.rs").is_some());
     }
 
     #[test]
     fn rejects_absolute() {
-        let root = Path::new("/tmp/ginger-root3");
-        let abs = PathValidator::safe_join(root, "/etc/passwd");
-        assert!(abs.is_none());
+        let sandbox = tempfile::tempdir().unwrap();
+        assert!(PathValidator::safe_join(sandbox.path(), "/etc/passwd").is_none());
     }
 }

@@ -1,3 +1,4 @@
+pub mod commands;
 // Ginger Code — Package Manager
 // Two ownership lanes: CURATED, CUSTOM.
 // Package kinds: neovim plugin, LSP server, formatter, linter, debugger, CLI tool.
