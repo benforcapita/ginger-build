@@ -18,6 +18,7 @@ interface NativeSession {
 interface Sessions {
   sessions: Session[];
   active: Record<SessionKind, number | null>;
+  focusRequest: { id: number; revision: number } | null;
   busy: boolean;
   error: string | null;
   restore: () => Promise<void>;
@@ -28,7 +29,7 @@ interface Sessions {
   setError: (error: string | null) => void;
 }
 export const useSessionStore = create<Sessions>((set, get) => ({
-  sessions: [], active: { editor: null, shell: null, agent: null }, busy: false, error: null,
+  focusRequest: null, sessions: [], active: { editor: null, shell: null, agent: null }, busy: false, error: null,
   setError: (error) => set({ error }),
   restore: async () => {
     if (!isTauri()) return;
@@ -55,11 +56,11 @@ export const useSessionStore = create<Sessions>((set, get) => ({
     try {
       const result = await invoke<{ id: number }>("terminal_launch", { kind, program: options.program ?? null, args: options.args ?? null, path: options.path ?? null });
       const title = options.title ?? options.path?.split("/").at(-1) ?? (kind === "shell" ? "shell" : options.program ?? "agent");
-      set((state) => ({ sessions: [...state.sessions, { id: result.id, kind, title, path: options.path, exited: false }], active: { ...state.active, [kind]: result.id } }));
+      set((state) => ({ sessions: [...state.sessions, { id: result.id, kind, title, path: options.path, exited: false }], focusRequest: { id: result.id, revision: (state.focusRequest?.revision ?? 0) + 1 }, active: { ...state.active, [kind]: result.id } }));
     } catch (e) { set({ error: String(e) }); }
     finally { set({ busy: false }); }
   },
-  select: (kind, id) => set((state) => ({ active: { ...state.active, [kind]: id } })),
+  select: (kind, id) => set((state) => ({ focusRequest: { id, revision: (state.focusRequest?.revision ?? 0) + 1 }, active: { ...state.active, [kind]: id } })),
   close: async (id) => {
     const session = get().sessions.find((s) => s.id === id);
     if (!session) return;
@@ -71,7 +72,12 @@ export const useSessionStore = create<Sessions>((set, get) => ({
       await invoke("terminal_terminate", { id });
       set((state) => {
         const sessions = state.sessions.filter((s) => s.id !== id);
-        return { sessions, active: { ...state.active, [session.kind]: state.active[session.kind] === id ? sessions.find((s) => s.kind === session.kind)?.id ?? null : state.active[session.kind] } };
+        const replacement = sessions.find((s) => s.kind === session.kind)?.id ?? null;
+        const focusId = state.focusRequest?.id === id ? replacement ?? sessions.at(-1)?.id : state.focusRequest?.id;
+        return { sessions,
+          focusRequest: focusId ? { id: focusId, revision: (state.focusRequest?.revision ?? 0) + 1 } : null,
+          active: { ...state.active, [session.kind]: state.active[session.kind] === id ? replacement : state.active[session.kind] },
+        };
       });
     } catch (e) { set({ error: String(e) }); }
   },

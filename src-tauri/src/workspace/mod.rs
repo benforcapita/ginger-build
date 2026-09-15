@@ -1,4 +1,5 @@
 pub mod commands;
+pub mod search;
 // Ginger Code — Workspace Management
 // Handles opening folders, tracking active workspace, and session lifecycle.
 
