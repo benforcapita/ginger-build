@@ -31,7 +31,7 @@ kbd { font: inherit; font-size: 10px; color: var(--fg-muted); }
 .workspace-actions button { border: none; font-size: 10px; padding: 5px 0; }
 .workspace-actions button kbd { margin-left: 10px; padding: 3px 4px; border: 1px solid var(--border); font-size: 9px; }
 .environment-badge { color: var(--fg-dim); font-size: 8px; letter-spacing: .7px; }
-.workspace-grid { display: grid; grid-template-columns: minmax(185px, .58fr) minmax(320px, 1fr) minmax(410px, 1.45fr); gap: 5px; flex: 1; min-height: 0; padding-top: 5px; }
+.workspace-grid { display: grid; grid-template-columns: minmax(160px, .55fr) minmax(340px, 1.8fr) minmax(280px, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 5px; flex: 1; min-height: 0; padding-top: 5px; }
 .code-column { min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(240px, 1.6fr) minmax(180px, 1fr); gap: 5px; }
 .panel-header { height: 36px; flex-shrink: 0; padding: 0 12px; display: flex; align-items: center; justify-content: space-between; font-size: 9px; letter-spacing: .5px; color: #a6a99b; border-bottom: 1px solid var(--border); gap: 8px; }
 .panel-header > span:first-child { white-space: nowrap; }
@@ -122,7 +122,7 @@ kbd { font: inherit; font-size: 10px; color: var(--fg-muted); }
 .palette-item { display: flex; justify-content: space-between; width: 100%; border: none; padding: 13px; font-size: 11px; }
 .palette-item.selected { background: #27291f; color: #e6c699; }
 .palette-results > p { padding: 20px; font-size: 11px; }
-@media (max-width: 1100px) { .workspace-grid { grid-template-columns: 180px minmax(290px, .9fr) minmax(360px, 1.3fr); } .environment-badge, .workspace-actions button kbd, .panel-header > .muted { display: none; } .ginger-companion { padding: 16px !important; } .status-bar > div { gap: 10px; } }
+@media (max-width: 1100px) { .workspace-grid { grid-template-columns: 160px minmax(300px, 1.6fr) minmax(260px, 1fr); } .environment-badge, .workspace-actions button kbd, .panel-header > .muted { display: none; } .ginger-companion { padding: 16px !important; } .status-bar > div { gap: 10px; } }
 @media (max-height: 760px) { .ginger-portrait { font-size: 7px !important; } .ginger-companion { padding-top: 14px !important; padding-bottom: 10px !important; } .portrait-button { margin-top: 12px !important; } .ginger-name { margin: 10px 0 !important; } .agent-empty { padding: 17px; gap: 10px; } .ginger-speech { min-height: 0 !important; padding: 9px !important; } }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
 
@@ -134,3 +134,29 @@ kbd { font: inherit; font-size: 10px; color: var(--fg-muted); }
 .palette-result-title { overflow-wrap: anywhere; }
 .palette-item small { color: var(--muted); flex-shrink: 0; max-width: 40%; text-align: right; font-size: 10px; }
 .palette-item.unavailable { opacity: .45; cursor: default; }
+
+.workspace-grid > .explorer { grid-column: 1; grid-row: 1 / 3; }
+.movable-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+.movable-pane > section { flex: 1; min-height: 0; }
+.pane-slot-0 { grid-column: 2; grid-row: 1 / 3; }
+.pane-slot-1 { grid-column: 3; grid-row: 1; }
+.pane-slot-2 { grid-column: 3; grid-row: 2; }
+.pane-arrangement { display: flex; align-items: center; min-height: 27px; flex-shrink: 0; gap: 8px; background: #151916; border: 1px solid var(--border); border-bottom: 0; padding-right: 6px; font-size: 9px; }
+.pane-arrangement button { border: 0; padding: 5px 8px; font-size: 9px; }
+.pane-arrangement .drag-handle { display: inline-flex; align-items: center; gap: 7px; cursor: grab; touch-action: none; user-select: none; color: var(--accent); font-size: 11px; padding: 6px 10px; }
+.drag-handle:active, .tab-grip:active { cursor: grabbing; }
+.pane-position { flex: 1; text-align: right; color: var(--fg-dim); }
+.pane-focused .pane-arrangement { border-top-color: var(--accent); }
+.pane-drop-target { outline: 2px dashed var(--accent); outline-offset: -3px; }
+.tab-grip { display: inline-flex; align-items: center; justify-content: center; align-self: stretch; width: 26px; min-height: 32px; flex-shrink: 0; cursor: grab; touch-action: none; user-select: none; color: var(--accent); border-right: 1px solid var(--border); background: var(--accent-glow); }
+.grip-icon { display: inline-block; width: 12px; height: 18px; flex-shrink: 0; background-image: radial-gradient(circle, currentColor 1.5px, transparent 1.7px); background-size: 6px 6px; }
+.tab-grip:hover, .pane-arrangement .drag-handle:hover { background-color: #df8d4d28; }
+.tab-drop-target { box-shadow: inset 3px 0 var(--accent); }
+.movable-pane:not(.pane-slot-0) .panel-header > .muted { display: none; }
+.movable-pane:not(.pane-slot-0) .ginger-companion { padding: 8px 12px !important; }
+.movable-pane:not(.pane-slot-0) .portrait-button, .movable-pane:not(.pane-slot-0) .ginger-speech, .movable-pane:not(.pane-slot-0) .ginger-name { display: none; }
+.movable-pane:not(.pane-slot-0) .agent-empty { padding: 12px; gap: 8px; }
+.movable-pane:not(.pane-slot-0) .editor-welcome { padding: 12px; overflow: auto; }
+.movable-pane:not(.pane-slot-0) .vim-mark { font-size: 20px; margin-bottom: 10px; }
+.movable-pane:not(.pane-slot-0) .vim-keys { margin-top: 12px; gap: 10px; }
+.movable-pane:not(.pane-slot-0) .editor-welcome h2 { font-size: 13px; }
