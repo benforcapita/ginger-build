@@ -1,3 +1,4 @@
+pub mod commands;
 // Ginger Code — Project Detection and Recommendations
 // Scans deterministic artifacts (package.json, Cargo.toml, etc.) to detect capabilities.
 // Capabilities map to curated packages. Detection runs async, never blocks startup.

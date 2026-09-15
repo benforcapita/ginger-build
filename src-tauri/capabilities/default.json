@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop",
+  "description": "Local Ginger workspace window",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:allow-destroy",
+    "dialog:allow-open",
+    "dialog:allow-ask",
+    "notification:allow-is-permission-granted"
+  ]
+}

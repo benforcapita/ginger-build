@@ -57,7 +57,7 @@ impl PersistenceService {
                 .filter_map(|e| e.ok())
                 .filter(|e| e.path().extension().map(|x| x == "sqlite").unwrap_or(false))
                 .collect();
-            backups.sort_by_key(|e| e.metadata().modified().ok());
+            backups.sort_by_key(|e| e.metadata().ok().and_then(|m| m.modified().ok()));
             while backups.len() > 5 {
                 if let Some(old) = backups.first() {
                     let _ = std::fs::remove_file(&old.path());

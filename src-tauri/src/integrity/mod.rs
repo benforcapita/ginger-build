@@ -1,3 +1,4 @@
+use sha2::Digest;
 /// Ginger Code — Runtime Integrity (LLD 124)
 /// Bundled runtime has an integrity manifest covering Neovim, Ginger core,
 /// required assets, and catalog baseline. Repair replaces corrupt runtime/cache

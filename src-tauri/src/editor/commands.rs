@@ -39,7 +39,7 @@ pub async fn editor_stop(
 pub async fn editor_status(
     host: tauri::State<'_, tokio::sync::Mutex<NeovimHost>>,
 ) -> Result<EditorStatus, EditorError> {
-    let host = host.lock().await;
+    let mut host = host.lock().await;
     Ok(EditorStatus {
         alive: host.is_alive(),
         runtime_path: host.runtime_path().display().to_string(),

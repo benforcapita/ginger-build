@@ -1,19 +1,17 @@
-// Ginger Code — PTY Terminal Host
-// Rust owns PTYs. User terminals and agent terminals share PTY infrastructure
-// but not lifecycle semantics.
-//
-// Operations: create, write, resize, terminate, subscribe output, observe exit.
+pub mod commands;
+mod process;
+use process::{OwnedProcess, SharedMaster};
 
-use std::path::PathBuf;
-use std::sync::Arc;
 use parking_lot::Mutex;
-use portable_pty::{CommandBuilder, PtySize,native_pty_system, PtyPair};
+use portable_pty::{native_pty_system, CommandBuilder, PtySize};
+use serde::Serialize;
+use std::{collections::{HashMap, VecDeque}, io::{Read, Write}, path::{Path, PathBuf}, sync::{Arc, atomic::{AtomicU64, Ordering}}};
+use tauri::ipc::Channel;
 use thiserror::Error;
-use tokio::sync::mpsc;
 
 #[derive(Debug, Error)]
 pub enum TerminalError {
-    #[error("pty error: {0}")]
+    #[error("terminal: {0}")]
     Pty(String),
     #[error("terminal not found: {0}")]
     NotFound(u64),
@@ -21,185 +19,208 @@ pub enum TerminalError {
     Exited(u64),
 }
 
-#[derive(Debug, Clone)]
-pub struct TerminalOutput {
-    pub terminal_id: u64,
-    pub data: Vec<u8>,
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum TerminalEvent {
+    Output { data: Vec<u8> },
+    Exit { code: Option<u32> },
 }
 
-#[derive(Debug, Clone)]
-pub struct TerminalExit {
-    pub terminal_id: u64,
-    pub exit_code: Option<i32>,
-}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub enum TerminalOwner { User, Agent, Editor }
 
-pub struct TerminalSession {
-    pub id: u64,
-    pub cwd: PathBuf,
-    pub shell: String,
-    pub owner_type: TerminalOwner,
-    pub owner_id: Option<u64>,
-    pub pair: PtyPair,
-    pub writer: Arc<Mutex<Box<dyn std::io::Write + Send>>>,
-    pub exit_rx: mpsc::Receiver<TerminalExit>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TerminalOwner {
-    User,
-    Agent,
-}
-
-pub struct TerminalHost {
-    next_id: Arc<Mutex<u64>>,
-    sessions: Arc<Mutex<std::collections::HashMap<u64, TerminalSession>>>,
-    output_tx: mpsc::Sender<TerminalOutput>,
-}
-
-impl TerminalHost {
-    pub fn new(output_tx: mpsc::Sender<TerminalOutput>) -> Self {
-        Self {
-            next_id: Arc::new(Mutex::new(1)),
-            sessions: Arc::new(Mutex::new(std::collections::HashMap::new())),
-            output_tx,
-        }
-    }
-
-    /// Create a new terminal session.
-    pub fn create(
-        &self,
-        cwd: &PathBuf,
-        shell: Option<&str>,
-        owner: TerminalOwner,
-        owner_id: Option<u64>,
-    ) -> Result<u64, TerminalError> {
-        let id = {
-            let mut next = self.next_id.lock();
-            let current = *next;
-            *next += 1;
-            current
-        };
-
-        let shell = shell.map(String::from)
-            .unwrap_or_else(|| std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into()));
-
-        let pty_system = native_pty_system();
-        let pair = pty_system
-            .openpty(PtySize {
-                rows: 24,
-                cols: 80,
-                pixel_width: 0,
-                pixel_height: 0,
-            })
-            .map_err(|e| TerminalError::Pty(e.to_string()))?;
-
-        let mut cmd = CommandBuilder::new(&shell);
-        cmd.cwd(cwd);
-
-        let writer = pair
-            .take_writer()
-            .map_err(|e| TerminalError::Pty(format!("take_writer: {e}")))?;
-
-        let reader = pair
-            .try_clone_reader()
-            .map_err(|e| TerminalError::Pty(format!("clone_reader: {e}")))?;
-
-        // Spawn the shell process
-        let _child = pair
-            .spawn_command(cmd)
-            .map_err(|e| TerminalError::Pty(format!("spawn: {e}")))?;
-
-        // Forward output to the channel
-        let output_tx = self.output_tx.clone();
-        let sessions = self.sessions.clone();
-        let reader_id = id;
-        tokio::spawn(async move {
-            use std::io::Read;
-            let mut buf = [0u8; 4096];
-            loop {
-                match reader.read(&mut buf) {
-                    Ok(0) => break,
-                    Ok(n) => {
-                        let _ = output_tx.send(TerminalOutput {
-                            terminal_id: reader_id,
-                            data: buf[..n].to_vec(),
-                        }).await;
-                    }
-                    Err(_) => break,
-                }
-            }
-            // Mark as exited
-            let mut sess = sessions.lock();
-            if let Some(s) = sess.get_mut(&reader_id) {
-                s.exit_rx.try_recv().ok();
-            }
-        });
-
-        let (_exit_tx, exit_rx) = mpsc::channel::<TerminalExit>(1);
-
-        let session = TerminalSession {
-            id,
-            cwd: cwd.clone(),
-            shell: shell.clone(),
-            owner_type: owner,
-            owner_id,
-            pair,
-            writer: Arc::new(Mutex::new(writer)),
-            exit_rx,
-        };
-
-        self.sessions.lock().insert(id, session);
-        tracing::info!("Terminal {} created (shell: {}, cwd: {})", id, shell, cwd.display());
-        Ok(id)
-    }
-
-    /// Write data to a terminal's stdin.
-    pub fn write(&self, id: u64, data: &[u8]) -> Result<(), TerminalError> {
-        let sessions = self.sessions.lock();
-        let session = sessions.get(&id).ok_or(TerminalError::NotFound(id))?;
-        let mut writer = session.writer.lock();
-        writer.write_all(data).map_err(|e| TerminalError::Pty(e.to_string()))?;
-        writer.flush().map_err(|e| TerminalError::Pty(e.to_string()))?;
-        Ok(())
-    }
-
-    /// Resize a terminal.
-    pub fn resize(&self, id: u64, rows: u16, cols: u16) -> Result<(), TerminalError> {
-        let sessions = self.sessions.lock();
-        let session = sessions.get(&id).ok_or(TerminalError::NotFound(id))?;
-        session.pair
-            .resize(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
-            .map_err(|e| TerminalError::Pty(e.to_string()))?;
-        Ok(())
-    }
-
-    /// Terminate a terminal session.
-    pub fn terminate(&self, id: u64) -> Result<(), TerminalError> {
-        let mut sessions = self.sessions.lock();
-        let session = sessions.remove(&id).ok_or(TerminalError::NotFound(id))?;
-        // Dropping the pair will kill the child process
-        drop(session);
-        tracing::info!("Terminal {} terminated", id);
-        Ok(())
-    }
-
-    /// List all terminal sessions.
-    pub fn list(&self) -> Vec<TerminalInfo> {
-        self.sessions.lock().values().map(|s| TerminalInfo {
-            id: s.id,
-            cwd: s.cwd.display().to_string(),
-            shell: s.shell.clone(),
-            owner_type: s.owner_type,
-            owner_id: s.owner_id,
-        }).collect()
-    }
-}
-
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TerminalInfo {
     pub id: u64,
     pub cwd: String,
     pub shell: String,
+    pub args: Vec<String>,
     pub owner_type: TerminalOwner,
     pub owner_id: Option<u64>,
+    pub exited: bool,
 }
+
+#[derive(Default)]
+struct OutputState {
+    history: VecDeque<u8>,
+    channel: Option<Channel<TerminalEvent>>,
+    exited: bool,
+    exit_code: Option<u32>,
+}
+
+impl OutputState {
+    fn output(&mut self, bytes: &[u8]) {
+        self.history.extend(bytes);
+        let excess = self.history.len().saturating_sub(512 * 1024);
+        self.history.drain(..excess);
+        if let Some(channel) = &self.channel {
+            if channel.send(TerminalEvent::Output { data: bytes.to_vec() }).is_err() {
+                self.channel = None;
+            }
+        }
+    }
+
+    fn exit(&mut self, code: Option<u32>) {
+        self.exited = true;
+        self.exit_code = code;
+        if let Some(channel) = self.channel.take() {
+            let _ = channel.send(TerminalEvent::Exit { code });
+        }
+    }
+}
+
+struct TerminalSession {
+    info: TerminalInfo,
+    master: SharedMaster,
+    input: std::sync::mpsc::SyncSender<Vec<u8>>,
+    process: Arc<Mutex<OwnedProcess>>,
+    output: Arc<Mutex<OutputState>>,
+}
+
+impl TerminalSession {
+    fn shutdown(&self) -> Result<(), TerminalError> { self.process.lock().shutdown() }
+}
+
+impl Drop for TerminalSession {
+    fn drop(&mut self) { let _ = self.shutdown(); }
+}
+
+#[derive(Default)]
+pub struct TerminalHost {
+    next_id: AtomicU64,
+    sessions: Mutex<HashMap<u64, TerminalSession>>,
+}
+
+impl TerminalHost {
+    pub fn create(&self, cwd: &PathBuf, shell: Option<&str>, owner: TerminalOwner, owner_id: Option<u64>) -> Result<u64, TerminalError> {
+        let shell = shell.map(str::to_owned).unwrap_or_else(|| std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into()));
+        self.launch(cwd, &shell, &["-l".into()], owner, owner_id)
+    }
+
+    pub fn launch(&self, cwd: &Path, program: &str, args: &[String], owner: TerminalOwner, owner_id: Option<u64>) -> Result<u64, TerminalError> {
+        if !cwd.is_dir() { return Err(TerminalError::Pty("working directory does not exist".into())); }
+        let executable = resolve_program(program, cwd)?;
+        let pair = native_pty_system().openpty(PtySize { rows: 24, cols: 80, pixel_width: 0, pixel_height: 0 }).map_err(pty_error)?;
+        let mut command = CommandBuilder::new(executable);
+        command.args(args);
+        command.cwd(cwd);
+        command.env("PATH", execution_path());
+        command.env("TERM", "xterm-256color");
+        command.env("COLORTERM", "truecolor");
+        let mut reader = pair.master.try_clone_reader().map_err(pty_error)?;
+        let mut writer = pair.master.take_writer().map_err(pty_error)?;
+        let child = pair.slave.spawn_command(command).map_err(pty_error)?;
+        drop(pair.slave);
+        let master = Arc::new(Mutex::new(pair.master));
+        let process = Arc::new(Mutex::new(OwnedProcess::new(child, master.clone())));
+        let reader_process = process.clone();
+        let monitor_process = process.clone();
+        let (input, input_rx) = std::sync::mpsc::sync_channel::<Vec<u8>>(32);
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed) + 1;
+        let output = Arc::new(Mutex::new(OutputState::default()));
+        let reader_output = output.clone();
+        self.sessions.lock().insert(id, TerminalSession {
+            info: TerminalInfo { id, cwd: cwd.display().to_string(), shell: program.to_string(), args: args.to_vec(), owner_type: owner, owner_id, exited: false },
+            master, input, process, output,
+        });
+        std::thread::spawn(move || {
+            loop {
+                match monitor_process.lock().poll() {
+                    Ok(true) => break,
+                    Ok(false) => {},
+                    Err(error) => { tracing::error!("process monitor: {error}"); break; }
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+        });
+        std::thread::spawn(move || {
+            while let Ok(data) = input_rx.recv() {
+                if writer.write_all(&data).and_then(|_| writer.flush()).is_err() { break; }
+            }
+        });
+        std::thread::spawn(move || {
+            let mut buffer = [0u8; 8192];
+            loop {
+                match reader.read(&mut buffer) {
+                    Ok(0) => break,
+                    Ok(n) => reader_output.lock().output(&buffer[..n]),
+                    Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+                    Err(_) => break,
+                }
+            }
+            let code = loop {
+                let process = reader_process.lock();
+                if process.complete { break process.code; }
+                drop(process);
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            };
+            reader_output.lock().exit(code);
+        });
+        Ok(id)
+    }
+
+    pub fn subscribe(&self, id: u64, channel: Channel<TerminalEvent>) -> Result<(), TerminalError> {
+        let sessions = self.sessions.lock();
+        let session = sessions.get(&id).ok_or(TerminalError::NotFound(id))?;
+        let mut output = session.output.lock();
+        // Replay and attachment share the lock: no gap or duplicated output.
+        channel.send(TerminalEvent::Output { data: output.history.iter().copied().collect() }).map_err(pty_error)?;
+        if output.exited { channel.send(TerminalEvent::Exit { code: output.exit_code }).map_err(pty_error)?; }
+        else { output.channel = Some(channel); }
+        Ok(())
+    }
+
+    pub fn write(&self, id: u64, data: &[u8]) -> Result<(), TerminalError> {
+        if data.len() > 64 * 1024 { return Err(TerminalError::Pty("paste is too large; paste at most 64 KiB at a time".into())); }
+        let sessions = self.sessions.lock();
+        let session = sessions.get(&id).ok_or(TerminalError::NotFound(id))?;
+        if session.output.lock().exited { return Err(TerminalError::Exited(id)); }
+        session.input.try_send(data.to_vec()).map_err(|error| TerminalError::Pty(format!("terminal input queue unavailable: {error}")))
+    }
+
+    pub fn resize(&self, id: u64, rows: u16, cols: u16) -> Result<(), TerminalError> {
+        let sessions = self.sessions.lock();
+        let session = sessions.get(&id).ok_or(TerminalError::NotFound(id))?;
+        let result = session.master.lock().resize(PtySize { rows: rows.max(1), cols: cols.max(1), pixel_width: 0, pixel_height: 0 }).map_err(pty_error);
+        result
+    }
+
+    pub fn terminate(&self, id: u64) -> Result<(), TerminalError> {
+        // Keep ownership if shutdown fails, so the session remains closeable.
+        let mut sessions = self.sessions.lock();
+        sessions.get(&id).ok_or(TerminalError::NotFound(id))?.shutdown()?;
+        sessions.remove(&id);
+        Ok(())
+    }
+
+    pub fn terminate_all(&self) { self.sessions.lock().clear(); }
+
+    pub fn list(&self) -> Vec<TerminalInfo> {
+        let mut list: Vec<_> = self.sessions.lock().values().map(|session| {
+            let mut info = session.info.clone();
+            info.exited = session.output.lock().exited;
+            info
+        }).collect();
+        list.sort_by_key(|session| session.id);
+        list
+    }
+}
+
+fn execution_path() -> std::ffi::OsString {
+    let current = std::env::var_os("PATH").unwrap_or_default();
+    let mut paths: Vec<PathBuf> = std::env::split_paths(&current).collect();
+    if let Some(home) = dirs::home_dir() {
+        paths.extend([home.join(".local/bin"), home.join(".cargo/bin"), home.join(".npm-global/bin")]);
+    }
+    paths.extend([PathBuf::from("/opt/homebrew/bin"), PathBuf::from("/usr/local/bin"), PathBuf::from("/usr/bin"), PathBuf::from("/bin")]);
+    std::env::join_paths(paths).unwrap_or(current)
+}
+
+pub fn resolve_program(program: &str, cwd: &Path) -> Result<PathBuf, TerminalError> {
+    which::which_in(program, Some(execution_path()), cwd).map_err(|_| TerminalError::Pty(format!("{program} is not installed or not on PATH")))
+}
+
+fn pty_error(error: impl std::fmt::Display) -> TerminalError { TerminalError::Pty(error.to_string()) }
+
+#[cfg(test)]
+mod tests;

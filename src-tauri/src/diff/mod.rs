@@ -1,3 +1,4 @@
+pub mod commands;
 // Ginger Code — Diff, Review and Apply Pipeline
 // Review selection is non-destructive until Apply.
 // Apply strategies: uncommitted → patch; clean commits → cherry-pick; explicit → merge.

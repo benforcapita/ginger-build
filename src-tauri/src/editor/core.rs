@@ -123,15 +123,12 @@ pub fn generate_workspace_config(
         .unwrap_or_default();
 
     let mut content = format!(
-        "-- Ginger Code workspace config (generated, do not edit)\n"
-        "-- Channel: {channel}\n\n"
-        "local channel = {channel}\n\n"
+        "-- Ginger Code workspace config (generated, do not edit)\n-- Channel: {channel}\n\nlocal channel = {channel}\n\n"
     );
 
     // Protected core
     content.push_str(&format!(
-        "local ok, core = pcall(require, \"{}\")\n"
-        "if ok then core.setup({{ channel = channel }}) end\n\n",
+        "local ok, core = pcall(require, \"{}\")\nif ok then core.setup({{ channel = channel }}) end\n\n",
         protected.with_extension("").display()
     ));
 

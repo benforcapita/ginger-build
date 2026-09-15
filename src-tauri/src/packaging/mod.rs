@@ -1,3 +1,4 @@
+pub mod commands;
 // Ginger Code — macOS Packaging & Signing
 // v0.1 target: signed Apple Silicon Ginger Code.app with bundled Neovim,
 // protected Ginger core, required runtime assets, and version reporting.

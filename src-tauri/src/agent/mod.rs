@@ -1,3 +1,4 @@
+pub mod commands;
 // Ginger Code — Agent Supervisor
 // Manages coding agents (Claude Code, Codex, Ollama, custom) in isolated worktrees.
 // Durable thread: create intent → allocate worktree → start PTY/agent → stream output → detect completion → verify → review → apply/discard.

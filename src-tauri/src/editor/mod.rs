@@ -1,3 +1,6 @@
+pub mod core;
+pub mod rpc;
+pub mod commands;
 // Ginger Code — Neovim Editor Host
 // Manages a bundled Neovim process via nvim --embed + Msgpack-RPC.
 
@@ -8,7 +11,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, serde::Serialize)]
 pub enum EditorError {
     #[error("neovim binary not found: {0}")]
     BinaryNotFound(String),
@@ -80,8 +83,8 @@ impl NeovimHost {
     }
 
     /// Check if the Neovim process is still alive.
-    pub fn is_alive(&self) -> bool {
-        self.child.as_ref().map(|c| {
+    pub fn is_alive(&mut self) -> bool {
+        self.child.as_mut().map(|c| {
             c.try_wait().map(|opt| opt.is_none()).unwrap_or(false)
         }).unwrap_or(false)
     }

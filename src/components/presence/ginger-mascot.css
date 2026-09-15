@@ -1,49 +1,23 @@
-.ginger-mascot {
-  position: relative;
-  display: inline-block;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  line-height: 1.1;
-}
-
-.ginger-ascii {
-  margin: 0;
-  color: var(--accent);
-  white-space: pre;
-}
-
-.ginger-state-idle .ginger-ascii { color: var(--fg-muted); }
-.ginger-state-coding .ginger-ascii { color: var(--accent); }
-.ginger-state-testing .ginger-ascii { color: var(--warning); }
-.ginger-state-success .ginger-ascii { color: var(--success); }
-.ginger-state-failure .ginger-ascii { color: var(--danger); }
-.ginger-state-warning .ginger-ascii { color: var(--warning); }
-.ginger-state-reviewing .ginger-ascii { color: #a78bfa; }
-
-.ginger-bubble {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 11px;
-  color: var(--fg);
-  white-space: nowrap;
-  max-width: 250px;
-  white-space: normal;
-  text-align: center;
-  animation: ginger-pop 0.3s ease;
-  margin-bottom: 4px;
-}
-
-.ginger-bubble-full { width: 250px; }
-.ginger-bubble-medium { width: 200px; }
-.ginger-bubble-compact { width: 150px; font-size: 10px; }
-
-@keyframes ginger-pop {
-  0% { opacity: 0; transform: translateX(-50%) translateY(4px); }
-  100% { opacity: 1; transform: translateX(-50%) translateY(0); }
-}
+.ginger-companion { flex-shrink: 0; padding: 20px 22px 18px; border-bottom: 1px solid var(--border); }
+.ginger-intro { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.version-tag { color: var(--accent); font-size: 9px; letter-spacing: 1.2px; }
+.presence-label { display: flex; gap: 6px; align-items: center; color: var(--fg-muted); font-size: 9px; }
+.presence-label i { width: 4px; height: 4px; border-radius: 50%; background: var(--success); }
+.portrait-button { position: relative; display: block; margin: 18px auto 0; border: 0; background: none; padding: 0; cursor: pointer; }
+.portrait-button:hover { background: none; }
+.ginger-portrait { font-family: var(--font-mono); font-size: clamp(7px, .69vw, 10px); line-height: 1.08; text-align: left; transition: transform 160ms; }
+.ginger-hair { color: #ba723e; text-shadow: 0 0 18px #d8783215; }
+.ginger-face { color: #d79964; }
+.ginger-hoodie { color: #303a37; }
+.portrait-button:hover .ginger-portrait { transform: translateY(-2px) rotate(-1deg); }
+.petted .ginger-portrait { animation: nod 400ms ease-in-out 2; }
+.pet-heart { position: absolute; right: 9%; top: 18%; color: var(--accent); font-size: 24px; }
+.ginger-name { display: flex; gap: 12px; align-items: baseline; justify-content: center; margin: 15px 0; }
+.ginger-name h1 { font-size: 23px; font-weight: 500; letter-spacing: -1px; }
+.ginger-name h1 span { color: var(--accent); }
+.ginger-name > span { color: var(--fg-muted); font-size: 9px; }
+.ginger-speech { border: 1px dashed #62452e; padding: 13px; display: flex; gap: 10px; min-height: 65px; font-size: 11px; line-height: 1.6; }
+.companion-controls { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 11px; color: var(--fg-dim); font-size: 8px; }
+.companion-controls button { color: var(--fg-muted); font-size: 9px; border: none; padding: 2px; }
+@keyframes nod { 50% { transform: translateY(3px) rotate(2deg); } }
+@media (prefers-reduced-motion: reduce) { .ginger-portrait { transition: none; animation: none !important; } }

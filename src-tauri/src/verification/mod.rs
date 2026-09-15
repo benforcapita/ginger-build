@@ -1,3 +1,4 @@
+pub mod commands;
 // Ginger Code — Verification Service
 // Deterministic verification of agent work.
 // Second-agent review receives original task, base revision, target diff and verification output.

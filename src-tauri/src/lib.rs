@@ -104,7 +104,7 @@ use verification_runs::VerificationStore;
 use watcher::DebouncedWatcher;
 use workspace::{commands as workspace_commands, WorkspaceService};
 
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -116,6 +116,24 @@ pub fn run() {
         .init();
 
     tauri::Builder::default()
+        .menu(|app| {
+            let menu = tauri::menu::Menu::default(app)?;
+            #[cfg(target_os = "macos")]
+            if let Some(tauri::menu::MenuItemKind::Submenu(application)) = menu.items()?.first() {
+                // The default macOS application submenu ends with native Quit.
+                // Replace it so unsaved terminal editors get a confirmation.
+                let position = application.items()?.len().saturating_sub(1);
+                application.remove_at(position)?;
+                let quit = tauri::menu::MenuItem::with_id(app, "ginger-quit", "Quit Ginger Code", true, Some("CmdOrCtrl+Q"))?;
+                application.insert(&quit, position)?;
+            }
+            Ok(menu)
+        })
+        .on_menu_event(|app, event| {
+            if event.id().as_ref() == "ginger-quit" {
+                let _ = app.emit("ginger-quit-requested", ());
+            }
+        })
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -126,6 +144,7 @@ pub fn run() {
             let handle = app.handle().clone();
 
             let persistence = PersistenceService::new(&handle)?;
+            let data_root = persistence.data_root().clone();
             app.manage(persistence);
 
             let platform = PlatformService::new(&handle)?;
@@ -138,23 +157,14 @@ pub fn run() {
             action::register_core_actions(&registry);
             app.manage(registry);
 
-            let runtime_path = persistence.data_root().join("runtime");
+            let runtime_path = data_root.as_path().join("runtime");
             let host = tokio::sync::Mutex::new(NeovimHost::new(runtime_path));
             app.manage(host);
 
             let workspace_svc = WorkspaceService::new();
             app.manage(workspace_svc);
 
-            let (output_tx, mut output_rx) = tokio::sync::mpsc::channel(1024);
-            let terminal_host = TerminalHost::new(output_tx);
-            app.manage(terminal_host);
-
-            let app_handle = app.handle().clone();
-            tokio::spawn(async move {
-                while let Some(output) = output_rx.recv().await {
-                    let _ = app_handle.emit("terminal_output", &output);
-                }
-            });
+            app.manage(TerminalHost::default());
 
             let git_svc = GitService::new();
             app.manage(git_svc);
@@ -168,7 +178,7 @@ pub fn run() {
             let verify_svc = VerificationService::new();
             app.manage(verify_svc);
 
-            let pkg_cache = persistence.data_root().join("cache").join("packages");
+            let pkg_cache = data_root.as_path().join("cache").join("packages");
             let pkg_mgr = PackageManager::new(pkg_cache);
             init_curated_catalog(&pkg_mgr);
             app.manage(pkg_mgr);
@@ -176,7 +186,7 @@ pub fn run() {
             let scanner = ProjectScanner::new();
             app.manage(scanner);
 
-            let packaging_svc = PackagingService::new(persistence.data_root().clone());
+            let packaging_svc = PackagingService::new(data_root.clone());
             packaging_svc.set_version(AppVersion {
                 app_version: "0.1.0".into(),
                 runtime_version: "0.1.0".into(),
@@ -189,7 +199,7 @@ pub fn run() {
             let recovery_svc = RecoveryService::new();
             if recovery_svc.is_stale() {
                 tracing::warn!("Stale heartbeat detected — running recovery");
-                let report = recovery_svc.recover(persistence.data_root());
+                let report = recovery_svc.recover(&data_root);
                 if report.safe_mode {
                     recovery_svc.enter_safe_mode();
                 }
@@ -197,7 +207,7 @@ pub fn run() {
             app.manage(recovery_svc);
 
             let app_handle = app.handle().clone();
-            tokio::spawn(async move {
+            tauri::async_runtime::spawn(async move {
                 loop {
                     if let Some(svc) = app_handle.try_state::<RecoveryService>() {
                         svc.heartbeat();
@@ -307,8 +317,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             action::invoke_action, action::list_actions, action::get_action_context,
             editor_commands::editor_start, editor_commands::editor_stop, editor_commands::editor_status,
-            workspace_commands::workspace_open, workspace_commands::workspace_close, workspace_commands::workspace_status, workspace_commands::workspace_set_pane_state,
-            terminal_commands::terminal_create, terminal_commands::terminal_write, terminal_commands::terminal_resize, terminal_commands::terminal_terminate, terminal_commands::terminal_list,
+            workspace_commands::workspace_list_directory, workspace_commands::workspace_open, workspace_commands::workspace_close, workspace_commands::workspace_status, workspace_commands::workspace_set_pane_state,
+            terminal_commands::terminal_launch, terminal_commands::terminal_subscribe, terminal_commands::terminal_harnesses, terminal_commands::terminal_terminate_all, terminal_commands::terminal_create, terminal_commands::terminal_write, terminal_commands::terminal_resize, terminal_commands::terminal_terminate, terminal_commands::terminal_list,
             git_commands::git_status, git_commands::git_is_repo, git_commands::git_branch, git_commands::git_create_worktree, git_commands::git_remove_worktree, git_commands::git_head_revision, git_commands::git_diff, git_commands::git_apply_patch, git_commands::git_cherry_pick,
             agent_commands::agent_create, agent_commands::agent_start, agent_commands::agent_complete, agent_commands::agent_get, agent_commands::agent_list, agent_commands::agent_remove, agent_commands::agent_active_count,
             diff_commands::diff_parse, diff_commands::diff_get, diff_commands::diff_check_conflict, diff_commands::diff_build_patch, diff_commands::diff_apply,
@@ -319,47 +329,20 @@ pub fn run() {
             recovery_commands::recovery_heartbeat, recovery_commands::recovery_is_stale, recovery_commands::recovery_safe_mode, recovery_commands::recovery_enter_safe_mode, recovery_commands::recovery_exit_safe_mode, recovery_commands::recovery_run,
             packaging_commands::packaging_version, packaging_commands::packaging_set_version, packaging_commands::packaging_validate_update,
             stabilization_commands::e2e_tests, stabilization_commands::e2e_verify_wiring,
-            // LLD Part II commands
-            process::process_spawn, process::process_list, process::process_kill, process::process_status,
-            jobs::job_submit, jobs::job_list, jobs::job_cancel, jobs::job_status,
-            agent_adapter::adapter_list, agent_adapter::adapter_detect, agent_adapter::adapter_register,
-            trust::trust_get, trust::trust_set, trust::trust_clear,
-            settings::settings_get, settings::settings_set, settings::settings_reset,
-            search::search_query, search::search_files,
-            verification_runs::verification_list, verification_runs::verification_get,
-            review::review_list, review::review_get, review::review_approve, review::review_reject,
-            apply::apply_log, apply::apply_commit,
-            reconcile::reconcile_worktrees, reconcile::reconcile_agents, reconcile::reconcile_packages,
-            diagnostics::diagnostics_run, diagnostics::diagnostics_health,
-            ipc::ipc_negotiate, ipc::ipc_version,
-            integrity::integrity_check, integrity::integrity_manifest,
-            ollama::ollama_list_models, ollama::ollama_ping,
-            package_plan::plan_install, package_plan::plan_trust,
-            cache::cache_get, cache::cache_put, cache::cache_clear,
-            keybinding::keybinding_check, keybinding::keybinding_list,
-            task::task_create, task::task_list, task::task_update, task::task_get,
-            scheduler::scheduler_status, scheduler::scheduler_queue, scheduler::scheduler_pause,
-            cleanup::cleanup_eligible, cleanup::cleanup_run,
-            environment::environment_status, environment::environment_activate, environment::environment_rollback,
-            watcher::watcher_watch, watcher::watcher_unwatch, watcher::watcher_status,
-            terminal_state::terminal_scrollback, terminal_state::terminal_render_state,
-            recommend::recommend_for_project, recommend::recommend_apply,
-            supply_chain::supply_chain_verify, supply_chain::supply_chain_status,
-            flags::flags_list, flags::flags_get, flags::flags_set,
-            compat::compat_check, compat::compat_matrix,
-            correlation::correlation_new, correlation::correlation_attach,
-            progress::progress_cancel, progress::progress_status,
-            atomic::atomic_write, atomic::atomic_read,
-            locking::lock_acquire, locking::lock_release, locking::lock_status,
-            concurrency::resource_lock, concurrency::resource_unlock,
-            path::path_validate, path::path_safe_join,
-            time::time_now, time::time_stopwatch,
-            serialization::serialize, serialization::deserialize,
-            error::error_code, error::error_message,
-            state_machine::state_machine_get, state_machine::state_machine_transition,
-            ginger_config::config_load, ginger_config::config_save,
-            command_detect::detect_commands, command_detect::detect_build,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Ginger Code");
+        .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                window.state::<TerminalHost>().terminate_all();
+            }
+        })
+        .build(tauri::generate_context!())
+        .expect("error while building Ginger Code")
+        .run(|app, event| {
+            if let tauri::RunEvent::ExitRequested { api, .. } = event {
+                if app.state::<TerminalHost>().list().iter().any(|session| !session.exited) {
+                    api.prevent_exit();
+                    let _ = app.emit("ginger-quit-requested", ());
+                }
+            }
+        });
 }

@@ -17,6 +17,5 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["src", "src-tauri/src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": ["src", "src-tauri/src"]
 }

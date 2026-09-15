@@ -1,3 +1,4 @@
+pub mod commands;
 // Ginger Code — End-to-End Stabilization
 // Wiring all slices together, adding integration tests, and ensuring
 // the app is runnable and testable after each slice.

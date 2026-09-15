@@ -1,3 +1,4 @@
+pub mod commands;
 // Ginger Code — Crash Recovery + Safe Mode
 // Heartbeat identifies abnormal shutdown.
 // Recovery reconciles workspace root, Git repository, worktrees, agent processes, package env, editor session.

@@ -1,92 +1,30 @@
-import { useEffect, useState, useMemo } from "react";
-import { useActionStore, type ActionDef } from "@/stores/action-store";
-import { useAgentStore } from "@/stores/agent-store";
-import "./command-palette.css";
-
-interface PaletteItem {
-  type: "action" | "agent" | "file";
-  id: string;
-  title: string;
-  subtitle: string;
-  icon: string;
-}
-
-export function CommandPalette({ onClose }: { onClose: () => void }) {
-  const actions = useActionStore((s) => s.actions);
-  const invokeAction = useActionStore((s) => s.invokeAction);
-  const agents = useAgentStore((s) => s.agents);
+import { useEffect, useRef, useState } from "react";
+export interface PaletteAction { id: string; title: string; shortcut?: string; run: () => void; disabled?: boolean }
+export function CommandPalette({ actions, onClose }: { actions: PaletteAction[]; onClose: () => void }) {
   const [query, setQuery] = useState("");
-
-  const items = useMemo<PaletteItem[]>(() => {
-    const actionItems: PaletteItem[] = actions.map((a) => ({
-      type: "action",
-      id: a.id,
-      title: a.title,
-      subtitle: a.category,
-      icon: "⚡",
-    }));
-    const agentItems: PaletteItem[] = agents.map((a) => ({
-      type: "agent",
-      id: String(a.id),
-      title: a.title,
-      subtitle: a.adapter_id,
-      icon: "🤖",
-    }));
-    return [...actionItems, ...agentItems];
-  }, [actions, agents]);
-
-  const filtered = useMemo(() => {
-    if (!query) return items.slice(0, 20);
-    const q = query.toLowerCase();
-    return items.filter((i) =>
-      i.title.toLowerCase().includes(q) || i.subtitle.toLowerCase().includes(q)
-    ).slice(0, 20);
-  }, [items, query]);
-
-  const handleSelect = (item: PaletteItem) => {
-    if (item.type === "action") {
-      invokeAction(item.id);
-    }
-    onClose();
-  };
-
+  const [index, setIndex] = useState(0);
+  const element = useRef<HTMLDivElement>(null);
+  const filtered = actions.filter((a) => a.title.toLowerCase().includes(query.toLowerCase()) && !a.disabled);
+  const choose = (action?: PaletteAction) => { if (action) { onClose(); action.run(); } };
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
-
-  return (
-    <div className="palette-overlay" onClick={onClose}>
-      <div className="palette" onClick={(e) => e.stopPropagation()}>
-        <input
-          className="palette-input"
-          placeholder="Search actions, agents, files..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          autoFocus
-        />
-        <div className="palette-results">
-          {filtered.map((item) => (
-            <button
-              key={`${item.type}:${item.id}`}
-              className="palette-item"
-              onClick={() => handleSelect(item)}
-            >
-              <span className="palette-icon">{item.icon}</span>
-              <div className="palette-item-text">
-                <span className="palette-item-title">{item.title}</span>
-                <span className="palette-item-sub">{item.subtitle}</span>
-              </div>
-            </button>
-          ))}
-          {filtered.length === 0 && (
-            <div className="palette-empty">No results</div>
-          )}
-        </div>
-      </div>
+    const previous = document.activeElement as HTMLElement | null;
+    return () => { previous?.focus(); };
+  }, []);
+  return <div className="palette-overlay" onClick={onClose}>
+    <div ref={element} className="palette" role="dialog" aria-modal="true" aria-label="Command palette" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => {
+      if (e.key === "Escape") { e.stopPropagation(); onClose(); }
+      if (e.key === "ArrowDown") { e.preventDefault(); setIndex((i) => Math.min(i + 1, filtered.length - 1)); }
+      if (e.key === "ArrowUp") { e.preventDefault(); setIndex((i) => Math.max(i - 1, 0)); }
+      if (e.key === "Enter") { e.preventDefault(); choose(filtered[index]); }
+      if (e.key === "Tab") {
+        const nodes = Array.from(element.current?.querySelectorAll<HTMLElement>("input, button") ?? []);
+        const first = nodes[0], last = nodes.at(-1);
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+      }
+    }}>
+      <div className="palette-search"><span>›</span><input autoFocus aria-label="Search commands" value={query} placeholder="What would you like to do?" onChange={(e) => { setQuery(e.target.value); setIndex(0); }} /><kbd>esc</kbd></div>
+      <div className="palette-results">{filtered.map((action, i) => <button key={action.id} className={`palette-item ${i === index ? "selected" : ""}`} onClick={() => choose(action)}><span>{action.title}</span><kbd>{action.shortcut}</kbd></button>)}{!filtered.length && <p className="muted">No matching commands.</p>}</div>
     </div>
-  );
+  </div>;
 }
