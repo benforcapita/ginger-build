@@ -53,10 +53,19 @@ export function TerminalView({ id, active }: { id: number; active: boolean }) {
     return () => { disposed = true; observer.disconnect(); input.dispose(); terminal.dispose(); termRef.current = null; };
   }, [id]);
   useEffect(() => {
-    if (active && (!focusRequest || focusRequest.id === id)) {
+    if (active && focusRequest?.id === id) {
       fitRef.current();
       termRef.current?.focus();
     }
   }, [active, focusRequest, id]);
-  return <div ref={container} className="terminal-view" onMouseDown={() => termRef.current?.focus()} hidden={!active} aria-label={`Terminal session ${id}`} />;
+  return <div ref={container} className="terminal-view" onFocusCapture={() => {
+    const state = useSessionStore.getState();
+    const session = state.sessions.find(s => s.id === id);
+    if (session && state.focusRequest?.id !== id) state.select(session.kind, id);
+  }} onMouseDown={() => {
+    const state = useSessionStore.getState();
+    const session = state.sessions.find(s => s.id === id);
+    if (session) state.select(session.kind, id);
+    termRef.current?.focus();
+  }} hidden={!active} aria-label={`Terminal session ${id}`} />;
 }

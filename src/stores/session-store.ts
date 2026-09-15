@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { useLayoutStore } from "./layout-store";
+import { reorderTabs } from "../workspace-layout";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 
@@ -24,6 +26,7 @@ interface Sessions {
   restore: () => Promise<void>;
   start: (kind: SessionKind, options?: { program?: string; args?: string[]; path?: string; title?: string }) => Promise<void>;
   select: (kind: SessionKind, id: number) => void;
+  moveTab: (id: number, target: number) => void;
   close: (id: number) => Promise<void>;
   markExited: (id: number, code: number | null) => void;
   setError: (error: string | null) => void;
@@ -55,12 +58,18 @@ export const useSessionStore = create<Sessions>((set, get) => ({
     set({ busy: true, error: null });
     try {
       const result = await invoke<{ id: number }>("terminal_launch", { kind, program: options.program ?? null, args: options.args ?? null, path: options.path ?? null });
+      useLayoutStore.getState().focusPane(kind);
       const title = options.title ?? options.path?.split("/").at(-1) ?? (kind === "shell" ? "shell" : options.program ?? "agent");
       set((state) => ({ sessions: [...state.sessions, { id: result.id, kind, title, path: options.path, exited: false }], focusRequest: { id: result.id, revision: (state.focusRequest?.revision ?? 0) + 1 }, active: { ...state.active, [kind]: result.id } }));
     } catch (e) { set({ error: String(e) }); }
     finally { set({ busy: false }); }
   },
-  select: (kind, id) => set((state) => ({ focusRequest: { id, revision: (state.focusRequest?.revision ?? 0) + 1 }, active: { ...state.active, [kind]: id } })),
+  select: (kind, id) => {
+    if (!get().sessions.some(s => s.id === id && s.kind === kind)) return;
+    useLayoutStore.getState().focusPane(kind);
+    set((state) => ({ focusRequest: { id, revision: (state.focusRequest?.revision ?? 0) + 1 }, active: { ...state.active, [kind]: id } }));
+  },
+  moveTab: (id, target) => set(s => ({ sessions: reorderTabs(s.sessions, id, target) })),
   close: async (id) => {
     const session = get().sessions.find((s) => s.id === id);
     if (!session) return;
@@ -70,15 +79,20 @@ export const useSessionStore = create<Sessions>((set, get) => ({
     }
     try {
       await invoke("terminal_terminate", { id });
+      const wasFocused = get().focusRequest?.id === id;
       set((state) => {
         const sessions = state.sessions.filter((s) => s.id !== id);
         const replacement = sessions.find((s) => s.kind === session.kind)?.id ?? null;
         const focusId = state.focusRequest?.id === id ? replacement ?? sessions.at(-1)?.id : state.focusRequest?.id;
         return { sessions,
-          focusRequest: focusId ? { id: focusId, revision: (state.focusRequest?.revision ?? 0) + 1 } : null,
+          focusRequest: wasFocused ? (focusId ? { id: focusId, revision: (state.focusRequest?.revision ?? 0) + 1 } : null) : state.focusRequest,
           active: { ...state.active, [session.kind]: state.active[session.kind] === id ? replacement : state.active[session.kind] },
         };
       });
+      if (wasFocused) {
+        const replacement = get().sessions.find(s => s.id === get().focusRequest?.id);
+        if (replacement) get().select(replacement.kind, replacement.id);
+      }
     } catch (e) { set({ error: String(e) }); }
   },
   markExited: (id, code) => set((state) => ({ sessions: state.sessions.map((s) => s.id === id ? { ...s, exited: true, exitCode: code } : s) })),

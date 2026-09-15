@@ -34,6 +34,15 @@ pnpm tauri dev
 
 Ctrl keys pass through to Neovim and terminal programs.
 
+## Movable tabs and panes
+
+The focused editor, agent, or terminal pane takes the large center area by default. The file tree stays on the left and the other panes stack on the right. Selecting a tab or clicking its terminal centers its pane without restarting the session.
+
+- Drag a tab’s ⠿ grip onto another tab in the same pane to reorder it. With a tab button focused, Option+Shift+Left/Right also changes its order.
+- Drag a pane’s ⠿ handle onto another pane to swap positions. A focused handle also accepts Left/Right to cycle positions.
+- Use ⌘K to move panes to center/upper right/lower right, reorder tabs, disable automatic centering, or reset the arrangement. Manual placement lasts until another focus change when automatic centering is enabled.
+- Layout and tab order are kept for the current app session. Session kinds stay grouped; editor tabs remain editors and harness tabs remain agents.
+
 ## Command line (⌘ K)
 
 Type a filename, part of its path, or an action name. Fuzzy matching works, so `agdock` finds `AgentDock.tsx`. Use `>` to search only actions or `/` to search files and folders. Arrow keys select a result; Enter runs it; Escape returns to your workspace.

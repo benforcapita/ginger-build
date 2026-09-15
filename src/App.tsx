@@ -4,9 +4,9 @@ import { open as chooseFolder, ask } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Explorer } from "@/components/explorer/Explorer";
-import { Editor } from "@/components/editor/Editor";
-import { AgentDock } from "@/components/agent-dock/AgentDock";
-import { Terminal } from "@/components/terminal/Terminal";
+import { WorkspacePanes, paneNames, slotNames } from "@/components/workspace/WorkspacePanes";
+import { useLayoutStore } from "@/stores/layout-store";
+import { type Pane } from "@/workspace-layout";
 import { CommandPalette, type PaletteAction } from "@/components/CommandPalette";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useWorkbenchStore } from "@/stores/workbench-store";
@@ -25,6 +25,7 @@ export default function App() {
     setPaletteOpen(!paletteOpen);
   }, [paletteOpen]);
   const workbench = useWorkbenchStore();
+  const layout = useLayoutStore();
   const activeEditor = useSessionStore((s) => s.active.editor);
   const openHarness = () => useWorkbenchStore.setState({ creatingHarness: true });
   const [opening, setOpening] = useState(false);
@@ -96,8 +97,16 @@ export default function App() {
     { id: "quiet", title: workbench.quiet ? "Unmute Ginger commentary" : "Mute Ginger commentary", keywords: "quiet mascot", run: () => useWorkbenchStore.setState({ quiet: !workbench.quiet }) },
     { id: "pet", title: "Pet Ginger", keywords: "mascot head pat", run: workbench.pet },
     { id: "dismiss", title: "Dismiss error", run: dismissError, disabled: !error && !workspaceError, reason: "No error to dismiss" },
+    { id: "auto-center", title: layout.autoCenter ? "Disable automatic tab centering" : "Enable automatic tab centering", keywords: "layout focus pane position", run: layout.toggleAutoCenter },
+    { id: "reset-layout", title: "Reset pane arrangement", keywords: "layout positions default", run: layout.reset },
+    ...(['editor', 'agent', 'shell'] as Pane[]).flatMap(pane => slotNames.map((slot, index): PaletteAction => ({ id: `place-${pane}-${index}`, title: `Move ${paneNames[pane]} pane to ${slot}`, keywords: "layout arrange position", run: () => layout.movePane(pane, index) }))),
     ...sessions.flatMap((s): PaletteAction[] => [
       { id: `session-${s.id}`, title: `Focus ${s.kind}: ${s.title}`, keywords: s.path, run: () => useSessionStore.getState().select(s.kind, s.id) },
+      ...([-1, 1] as const).map(direction => {
+        const group = sessions.filter(item => item.kind === s.kind);
+        const target = group[group.findIndex(item => item.id === s.id) + direction];
+        return { id: `move-${s.id}-${direction}`, title: `Move ${s.kind} tab ${s.title} ${direction < 0 ? 'left' : 'right'}`, keywords: 'reorder arrange position', disabled: !target, reason: 'Already at the edge', run: () => { if (target) useSessionStore.getState().moveTab(s.id, target.id); } };
+      }),
       { id: `close-${s.id}`, title: `Close ${s.kind}: ${s.title}`, keywords: `stop terminate tab ${s.path ?? ""}`, run: () => useSessionStore.getState().close(s.id) },
     ]),
     { id: "quit", title: "Quit Ginger Code", keywords: "exit application", shortcut: "⌘ Q", run: () => { window.dispatchEvent(new Event("ginger-request-quit")); }, disabled: !native, reason: "Available in the desktop app" },
@@ -106,7 +115,7 @@ export default function App() {
   return <main className="app">
     <header className="workspace-bar"><div className="workspace-location"><span className="brand-symbol">g.</span><span className="accent">ginger</span><span className="muted">:</span><span className="workspace-path" title={workspace?.root_path}>{workspace?.root_path ?? "~/your-next-idea"}</span><span className="prompt-cursor">▌</span></div><div className="workspace-actions"><span className="environment-badge">{native ? "LOCAL WORKSPACE" : "BROWSER PREVIEW"}</span><button onClick={togglePalette}>Commands <kbd>⌘ K / ⌘ P</kbd></button><button disabled={opening || busy} onClick={() => void openFolder()}>{opening ? "Opening…" : "Open folder ↗"}</button></div></header>
     {(error || workspaceError) && <div className="error-banner" role="alert"><span>{error ?? workspaceError}</span><button aria-label="Dismiss error" onClick={dismissError}>×</button></div>}
-    <div className="workspace-grid"><Explorer onOpenFolder={() => { void openFolder(); }} /><AgentDock /><div className="code-column"><Editor /><Terminal /></div></div>
+    <div className="workspace-grid"><Explorer onOpenFolder={() => { void openFolder(); }} /><WorkspacePanes /></div>
     <footer className="status-bar"><div><span className="status-brand">GINGER</span><span>{workspace ? workspace.display_name : "No workspace"}</span><span className="status-divider">/</span><span>NEOVIM + CLI HARNESSES</span></div><div><span><i className="dot" /> {liveAgents} live {liveAgents === 1 ? "harness" : "harnesses"}</span><span>{sessions.length} sessions</span><span className="accent">{busy ? "STARTING…" : "LET’S BUILD SOMETHING."}</span></div></footer>
     {paletteOpen && <CommandPalette returnFocus={paletteReturnFocus.current} actions={actions} onClose={() => setPaletteOpen(false)} />}
   </main>;
