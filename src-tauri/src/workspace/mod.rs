@@ -1,3 +1,4 @@
+pub mod documents;
 pub mod commands;
 pub mod search;
 // Ginger Code — Workspace Management

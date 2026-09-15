@@ -1,3 +1,4 @@
+import { CodeEditor } from "@/components/editor/CodeEditor";
 import { flushSync } from "react-dom";
 import { useSessionStore, type SessionKind } from "@/stores/session-store";
 import { useLayoutStore } from '@/stores/layout-store';
@@ -26,11 +27,11 @@ export function SessionTabs({ kind }: { kind: SessionKind }) {
           }
           else select(kind, next.id);
         }}>
-          <span className={s.exited ? "dot exited" : "dot"} />{s.title}
+          <span className={s.exited ? "dot exited" : "dot"} />{s.title}{s.document && s.document.text !== s.document.baseline ? " •" : ""}
         </button>
         <button className="tab-close" aria-label={`Close ${s.title}`} onClick={() => void close(s.id)}>×</button>
       </div>)}
     </div>
-    <div className="session-views">{[...sessions].sort((a, b) => a.id - b.id).map((s) => <TerminalView key={s.id} id={s.id} active={s.id === active} />)}</div>
+    <div className="session-views">{[...sessions].sort((a, b) => a.id - b.id).map((s) => s.document ? <CodeEditor key={s.id} id={s.id} active={s.id === active} /> : <TerminalView key={s.id} id={s.id} active={s.id === active} />)}</div>
   </>;
 }

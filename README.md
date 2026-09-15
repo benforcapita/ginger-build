@@ -1,11 +1,11 @@
 # Ginger Code
 
-A macOS desktop IDE with a terminal aesthetic, real Neovim, a project tree, independent CLI harness tabs, and Ginger: an orange-haired text-art code companion.
+A macOS desktop IDE with a terminal aesthetic, a built-in editor with Vim keybindings, a project tree, independent CLI harness tabs, and Ginger: an orange-haired text-art code companion.
 
 ## What works
 
 - Open a local folder and expand its file tree. Directories load on demand; refresh picks up filesystem changes. Links outside the open workspace are excluded.
-- Open files in Neovim tabs. Use your normal Vim controls and user configuration: `i` to insert, `Esc` to return to normal mode, `:w` to save, `:q` to quit. Each tab owns a Neovim process.
+- Open files in Ginger’s CodeMirror editor. Vim mode is enabled by default: `i` to insert, `Esc` for Normal mode, `v` for Visual mode, `:w` to save, `:q` to close, and `:wq` to save and close. Neovim is not required; Neovim configuration and plugins do not apply. Toggle Vim mode through ⌘K.
 - Run login shells alongside the editor with live input/output and pane resizing.
 - Start Claude Code, Codex, OpenCode, or a custom executable with an argument list in a separate harness tab. Installed programs are detected; each CLI handles its own authentication. Up to three live harnesses share the open workspace.
 - Pet Ginger, mute commentary, or minimize the portrait while harnesses run. Session counts and exit indicators reflect real processes.
@@ -13,12 +13,10 @@ A macOS desktop IDE with a terminal aesthetic, real Neovim, a project tree, inde
 
 ## Develop
 
-Requires macOS, Node.js, pnpm, a Rust toolchain, and Neovim. The Tauri launcher locates an installed rustup toolchain even when Cargo is absent from PATH. Ginger also checks common Homebrew and user executable directories when started from Finder.
+Requires macOS, Node.js, pnpm, a Rust toolchain. The Tauri launcher locates an installed rustup toolchain even when Cargo is absent from PATH. Ginger also checks common Homebrew and user executable directories when started from Finder.
 
 ```sh
 pnpm install
-# If Neovim is missing:
-brew install neovim
 pnpm tauri dev
 ```
 
@@ -28,18 +26,18 @@ pnpm tauri dev
 | --- | --- |
 | ⌘ O | Open folder |
 | ⌘ P / ⌘ K | Command palette |
-| ⌘ S | Send `:write` to the active Neovim tab |
+| ⌘ S | Save the active file |
 | ⌘ ⇧ T | New shell |
 | ⌘ ⇧ N | New harness |
 
-Ctrl keys pass through to Neovim and terminal programs.
+Ctrl keys use Vim bindings in the editor and pass through to terminal programs.
 
 ## Keyboard file tree
 
 Press **⌘⇧E**, click **PROJECT**, or run **Focus file tree** from ⌘K. The amber row is your keyboard cursor.
 
 - `j` / `k` or Down / Up move through visible entries.
-- Enter expands or collapses a folder; on a file it opens Neovim and moves focus to the editor.
+- Enter expands or collapses a folder; on a file it opens the file and moves focus to the editor.
 - `l` / Right expands a folder, then moves into its first visible child. `h` / Left collapses a folder or moves to its parent.
 - Space toggles a single selection marker without opening the entry. Moving the cursor leaves that selection marked; Space on another entry replaces it. Refresh clears the selection.
 - `g` / Home jumps to the first entry; `G` / End jumps to the last.
@@ -75,7 +73,7 @@ On a Mac with Xcode Command Line Tools, Node.js (22.18+ for tests), pnpm, and Ru
 pnpm build:dmg
 ```
 
-The script installs locked dependencies, builds the app, packages it with an Applications shortcut, and verifies the DMG. The result is in `artifacts/`. Transfer the DMG to another Mac, open it, and drag **Ginger Code.app** into **Applications**. Install Neovim (`brew install neovim`) and your chosen agent CLIs on that Mac separately.
+The script installs locked dependencies, builds the app, packages it with an Applications shortcut, and verifies the DMG. The result is in `artifacts/`. Transfer the DMG to another Mac, open it, and drag **Ginger Code.app** into **Applications**. Install your chosen agent CLIs on that Mac separately; the file editor is included.
 
 By default it builds for the current Mac's architecture. To build for another architecture, install the Rust target and pass it explicitly:
 
@@ -105,9 +103,9 @@ The local app bundle is created at `src-tauri/target/debug/bundle/macos/Ginger C
 
 ## Scope of this implementation
 
-This is a working development build, not a release candidate. Harnesses currently share the primary workspace; automatic worktree isolation, review/apply workflows, restart persistence, filesystem watching, and bundled Neovim distribution remain unfinished. The pre-existing Part II service modules remain in the repository, but nonexistent IPC commands are no longer registered as if implemented. Legacy modules still emit unused-code warnings.
+This is a working development build, not a release candidate. Harnesses currently share the primary workspace; automatic worktree isolation, review/apply workflows, restart persistence, language-server integration, and native filesystem watching remain unfinished. The pre-existing Part II service modules remain in the repository, but nonexistent IPC commands are no longer registered as if implemented. Legacy modules still emit unused-code warnings.
 
-Neovim is resolved from `~/.ginger/runtime/bin/nvim` when provided, otherwise from the system. Closing an editor forcefully can discard unsaved buffers; use `:wq` or `:q` when possible. Session cleanup stops the original and foreground process groups; separately detached processes remain outside that guarantee. Terminal input is bounded; a single paste above 64 KiB or a full input queue produces an error rather than blocking every session.
+Editor files must be UTF-8 text up to 5 MiB. LF and CRLF line endings are preserved; mixed line endings are normalized to the first line’s style when edited. Unsaved changes show a dot on the tab and require confirmation before closing or quitting. Disk changes are checked every three seconds and on window focus: clean buffers reload, modified buffers show a conflict. Saves check disk contents again and use an atomic replacement. External writers can still race the final check/rename; this is not a filesystem transaction. Use “Reload active file from disk” to discard local edits after confirmation. Find and replace is available through ⌘K or ⌘F. Tab buffers and undo history are not persisted across app restarts. Session cleanup stops the original and foreground process groups; separately detached processes remain outside that guarantee. Terminal input is bounded; a single paste above 64 KiB or a full input queue produces an error rather than blocking every session.
 
 UI and stream integration follow the [Tauri channel API](https://v2.tauri.app/develop/calling-frontend/) and [xterm.js terminal API](https://xtermjs.org/docs/api/terminal/classes/terminal/).
 

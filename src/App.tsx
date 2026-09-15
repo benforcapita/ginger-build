@@ -27,6 +27,7 @@ export default function App() {
   }, [paletteOpen]);
   const workbench = useWorkbenchStore();
   const layout = useLayoutStore();
+  const vimEnabled = useSessionStore(s => s.vim);
   const activeEditor = useSessionStore((s) => s.active.editor);
   const openHarness = () => useWorkbenchStore.setState({ creatingHarness: true });
   const [opening, setOpening] = useState(false);
@@ -35,13 +36,18 @@ export default function App() {
     if (!native) return;
     void useWorkspaceStore.getState().refresh();
     void useSessionStore.getState().restore();
+    const check = () => { void useSessionStore.getState().checkDisk(); };
+    const poll = window.setInterval(check, 3000);
+    window.addEventListener("focus", check);
     let disposed = false;
     let closing = false;
     const requestQuit = async () => {
       if (closing) return;
       closing = true;
       try {
-        if (useSessionStore.getState().sessions.some((s) => !s.exited) && !await ask("Quit Ginger? This stops running sessions. Unsaved Neovim buffers may be lost. Save your files first.", { title: "Quit Ginger Code", kind: "warning" })) return;
+        const tabs = useSessionStore.getState().sessions;
+        if (tabs.some(s => s.saving)) { useSessionStore.getState().setError("Wait for files to finish saving before quitting."); return; }
+        if (tabs.some(s => s.document ? s.document.text !== s.document.baseline : !s.exited) && !await ask("Quit Ginger? Unsaved file changes will be discarded and running sessions will stop.", { title: "Quit Ginger Code", kind: "warning" })) return;
         await invoke("terminal_terminate_all");
         await getCurrentWindow().destroy();
       } catch (e) { useSessionStore.getState().setError(String(e)); }
@@ -53,7 +59,7 @@ export default function App() {
     const quitCleanup = listen("ginger-quit-requested", () => { void requestQuit(); });
     void quitCleanup.then((unlisten) => { if (disposed) unlisten(); });
     void cleanup.then((unlisten) => { if (disposed) unlisten(); });
-    return () => { disposed = true; window.removeEventListener("ginger-request-quit", quitFromCommand); void cleanup.then((unlisten) => unlisten()); void quitCleanup.then((unlisten) => unlisten()); };
+    return () => { window.clearInterval(poll); window.removeEventListener("focus", check); disposed = true; window.removeEventListener("ginger-request-quit", quitFromCommand); void cleanup.then((unlisten) => unlisten()); void quitCleanup.then((unlisten) => unlisten()); };
   }, [native]);
 
   const openFolder = useCallback(async () => {
@@ -70,7 +76,7 @@ export default function App() {
   }, [native, opening]);
   const save = useCallback(() => {
     const state = useSessionStore.getState();
-    if (state.active.editor !== null) void invoke("terminal_write", { id: state.active.editor, data: Array.from(new TextEncoder().encode("\x1b:write\r")) }).catch((e) => state.setError(String(e)));
+    if (state.active.editor !== null) void state.save(state.active.editor);
   }, []);
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {
@@ -82,6 +88,7 @@ export default function App() {
         if (paletteOpen) flushSync(() => setPaletteOpen(false));
         useWorkbenchStore.getState().focusTree();
       }
+      if (key === "q") { e.preventDefault(); window.dispatchEvent(new Event("ginger-request-quit")); }
       if (key === "o") { e.preventDefault(); void openFolder(); }
       if (key === "s" && e.metaKey) { e.preventDefault(); save(); }
       if (e.shiftKey && key === "t" && workspace) { e.preventDefault(); void useSessionStore.getState().start("shell"); }
@@ -93,7 +100,10 @@ export default function App() {
   const dismissError = () => { useSessionStore.getState().setError(null); useWorkspaceStore.setState({ error: null }); };
   const actions: PaletteAction[] = [
     { id: "folder", title: "Open folder", keywords: "project workspace switch", shortcut: "⌘ O", run: openFolder, disabled: opening || busy, reason: "Wait for the current operation" },
-    { id: "save", title: "Save active Neovim file", shortcut: "⌘ S", run: save, disabled: !sessions.some((s) => s.id === activeEditor && !s.exited), reason: "Open an editor first" },
+    { id: "save", title: "Save active file", shortcut: "⌘ S", run: save, disabled: !sessions.some((s) => s.id === activeEditor && !s.exited), reason: "Open an editor first" },
+    { id: "vim-mode", title: vimEnabled ? "Disable Vim mode" : "Enable Vim mode", keywords: "editor keybindings normal insert visual", run: () => useSessionStore.getState().toggleVim() },
+    { id: "editor-search", title: "Find and replace in active file", keywords: "search text", run: () => { window.dispatchEvent(new Event("ginger-editor-search")); }, disabled: activeEditor === null, reason: "Open a file first" },
+    { id: "editor-reload", title: "Reload active file from disk", keywords: "external changes conflict discard", run: () => { if (activeEditor !== null) return useSessionStore.getState().reload(activeEditor); }, disabled: activeEditor === null, reason: "Open a file first" },
     { id: "shell", title: "New terminal", keywords: "shell command", shortcut: "⌘ ⇧ T", run: () => useSessionStore.getState().start("shell"), disabled: !workspace || busy, reason: "Open a folder and wait for session startup" },
     { id: "agent", title: "Start an agent harness", keywords: "claude codex opencode custom executable arguments", shortcut: "⌘ ⇧ N", run: openHarness, disabled: !workspace || busy, reason: "Open a folder and wait for session startup" },
     { id: "cancel-agent", title: "Cancel harness setup", run: () => useWorkbenchStore.setState({ creatingHarness: false }), disabled: !workbench.creatingHarness, reason: "No harness setup is open" },
@@ -123,7 +133,7 @@ export default function App() {
     <header className="workspace-bar"><div className="workspace-location"><span className="brand-symbol">g.</span><span className="accent">ginger</span><span className="muted">:</span><span className="workspace-path" title={workspace?.root_path}>{workspace?.root_path ?? "~/your-next-idea"}</span><span className="prompt-cursor">▌</span></div><div className="workspace-actions"><span className="environment-badge">{native ? "LOCAL WORKSPACE" : "BROWSER PREVIEW"}</span><button onClick={togglePalette}>Commands <kbd>⌘ K / ⌘ P</kbd></button><button disabled={opening || busy} onClick={() => void openFolder()}>{opening ? "Opening…" : "Open folder ↗"}</button></div></header>
     {(error || workspaceError) && <div className="error-banner" role="alert"><span>{error ?? workspaceError}</span><button aria-label="Dismiss error" onClick={dismissError}>×</button></div>}
     <div className="workspace-grid"><Explorer onOpenFolder={() => { void openFolder(); }} /><WorkspacePanes /></div>
-    <footer className="status-bar"><div><span className="status-brand">GINGER</span><span>{workspace ? workspace.display_name : "No workspace"}</span><span className="status-divider">/</span><span>NEOVIM + CLI HARNESSES</span></div><div><span><i className="dot" /> {liveAgents} live {liveAgents === 1 ? "harness" : "harnesses"}</span><span>{sessions.length} sessions</span><span className="accent">{busy ? "STARTING…" : "LET’S BUILD SOMETHING."}</span></div></footer>
+    <footer className="status-bar"><div><span className="status-brand">GINGER</span><span>{workspace ? workspace.display_name : "No workspace"}</span><span className="status-divider">/</span><span>FILE EDITOR + CLI HARNESSES</span></div><div><span><i className="dot" /> {liveAgents} live {liveAgents === 1 ? "harness" : "harnesses"}</span><span>{sessions.length} sessions</span><span className="accent">{busy ? "STARTING…" : "LET’S BUILD SOMETHING."}</span></div></footer>
     {paletteOpen && <CommandPalette returnFocus={paletteReturnFocus.current} actions={actions} onClose={() => setPaletteOpen(false)} />}
   </main>;
 }

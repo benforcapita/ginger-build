@@ -12,7 +12,7 @@ Targets: aarch64-apple-darwin, x86_64-apple-darwin, universal-apple-darwin
 --debug  Build a faster development installer.
 
 Requires macOS, Xcode Command Line Tools, Node.js, pnpm, and Rust.
-Neovim and agent CLIs must be installed separately on the destination Mac.
+Agent CLIs must be installed separately on the destination Mac. The file editor is included.
 Signing/notarization uses Tauri's signing environment variables when configured.
 Without signing credentials, this produces an unsigned local development installer.
 HELP
@@ -71,7 +71,7 @@ ditto "$app" "$staging/image/Ginger Code.app"
 ln -s /Applications "$staging/image/Applications"
 cat > "$staging/image/Read Me.txt" <<'INSTALL'
 Drag Ginger Code.app into Applications, then open it.
-Requires macOS 12 or newer and Neovim (brew install neovim).
+Requires macOS 12 or newer. The file editor includes Vim keybindings.
 Install and log in to your preferred agent CLI separately.
 Open a project folder, press Command-K, and search files or actions.
 An unsigned development build may be blocked by macOS Gatekeeper.
