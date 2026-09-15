@@ -160,3 +160,14 @@ kbd { font: inherit; font-size: 10px; color: var(--fg-muted); }
 .movable-pane:not(.pane-slot-0) .vim-mark { font-size: 20px; margin-bottom: 10px; }
 .movable-pane:not(.pane-slot-0) .vim-keys { margin-top: 12px; gap: 10px; }
 .movable-pane:not(.pane-slot-0) .editor-welcome h2 { font-size: 13px; }
+
+.keyboard-tree { min-height: 60px; outline: none; }
+.explorer:has(.keyboard-tree:focus) { border-color: var(--accent); }
+.keyboard-tree:focus .tree-cursor { background: #3b2b1d; outline: 1px solid var(--accent); outline-offset: -1px; color: #f1d7af; }
+.tree-entry { cursor: pointer; }
+.tree-entry:hover { background: var(--bg-elevated); }
+.tree-selection { width: 6px; flex-shrink: 0; color: var(--accent); font-size: 7px; }
+.tree-selected { color: var(--accent); }
+.tree-key-help { font-size: 9px; color: var(--fg-muted); line-height: 1.8; padding: 12px; border-top: 1px solid var(--border); margin-top: 10px; }
+.panel-header .tree-focus-button { display: flex; gap: 8px; align-items: center; padding: 5px 0; }
+.tree-focus-button kbd { font-size: 8px; }

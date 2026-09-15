@@ -1,3 +1,4 @@
+import { flushSync } from "react-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { open as chooseFolder, ask } from "@tauri-apps/plugin-dialog";
@@ -76,6 +77,11 @@ export default function App() {
       const key = e.key.toLowerCase();
       if (!e.metaKey) return;
       if (key === "p" || key === "k") { e.preventDefault(); togglePalette(); }
+      if (key === "e" && e.shiftKey && workspace) {
+        e.preventDefault();
+        if (paletteOpen) flushSync(() => setPaletteOpen(false));
+        useWorkbenchStore.getState().focusTree();
+      }
       if (key === "o") { e.preventDefault(); void openFolder(); }
       if (key === "s" && e.metaKey) { e.preventDefault(); save(); }
       if (e.shiftKey && key === "t" && workspace) { e.preventDefault(); void useSessionStore.getState().start("shell"); }
@@ -83,7 +89,7 @@ export default function App() {
     };
     window.addEventListener("keydown", handle);
     return () => window.removeEventListener("keydown", handle);
-  }, [openFolder, save, workspace, togglePalette]);
+  }, [openFolder, save, workspace, togglePalette, paletteOpen]);
   const dismissError = () => { useSessionStore.getState().setError(null); useWorkspaceStore.setState({ error: null }); };
   const actions: PaletteAction[] = [
     { id: "folder", title: "Open folder", keywords: "project workspace switch", shortcut: "⌘ O", run: openFolder, disabled: opening || busy, reason: "Wait for the current operation" },
@@ -92,6 +98,7 @@ export default function App() {
     { id: "agent", title: "Start an agent harness", keywords: "claude codex opencode custom executable arguments", shortcut: "⌘ ⇧ N", run: openHarness, disabled: !workspace || busy, reason: "Open a folder and wait for session startup" },
     { id: "cancel-agent", title: "Cancel harness setup", run: () => useWorkbenchStore.setState({ creatingHarness: false }), disabled: !workbench.creatingHarness, reason: "No harness setup is open" },
     { id: "refresh", title: "Refresh file tree and search", keywords: "reload rescan files", run: workbench.refreshTree, disabled: !workspace, reason: "Open a folder first" },
+    { id: "focus-tree", title: "Focus file tree", keywords: "explorer project vim navigation", shortcut: "⌘ ⇧ E", run: workbench.focusTree, disabled: !workspace, reason: "Open a folder first" },
     { id: "collapse", title: "Collapse all folders", keywords: "tree explorer", run: workbench.collapseTree, disabled: !workspace, reason: "Open a folder first" },
     { id: "companion", title: workbench.showCompanion ? "Minimize Ginger" : "Show Ginger", keywords: "mascot companion portrait", run: () => useWorkbenchStore.setState({ showCompanion: !workbench.showCompanion }) },
     { id: "quiet", title: workbench.quiet ? "Unmute Ginger commentary" : "Mute Ginger commentary", keywords: "quiet mascot", run: () => useWorkbenchStore.setState({ quiet: !workbench.quiet }) },

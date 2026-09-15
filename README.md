@@ -34,6 +34,18 @@ pnpm tauri dev
 
 Ctrl keys pass through to Neovim and terminal programs.
 
+## Keyboard file tree
+
+Press **⌘⇧E**, click **PROJECT**, or run **Focus file tree** from ⌘K. The amber row is your keyboard cursor.
+
+- `j` / `k` or Down / Up move through visible entries.
+- Enter expands or collapses a folder; on a file it opens Neovim and moves focus to the editor.
+- `l` / Right expands a folder, then moves into its first visible child. `h` / Left collapses a folder or moves to its parent.
+- Space toggles a single selection marker without opening the entry. Moving the cursor leaves that selection marked; Space on another entry replaces it. Refresh clears the selection.
+- `g` / Home jumps to the first entry; `G` / End jumps to the last.
+
+Press ⌘⇧E again to return from an editor or harness. The file tree stays on the left.
+
 ## Movable tabs and panes
 
 The focused editor, agent, or terminal pane takes the large center area by default. The file tree stays on the left and the other panes stack on the right. Selecting a tab or clicking its terminal centers its pane without restarting the session.

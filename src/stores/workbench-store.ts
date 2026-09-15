@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 interface Workbench {
   treeRevision: number;
+  treeFocusRequest: number;
+  focusTree: () => void;
   expanded: Set<string>;
   showCompanion: boolean;
   quiet: boolean;
@@ -12,6 +14,8 @@ interface Workbench {
   pet: () => void;
 }
 export const useWorkbenchStore = create<Workbench>((set) => ({
+  treeFocusRequest: 0,
+  focusTree: () => set(s => ({ treeFocusRequest: s.treeFocusRequest + 1 })),
   treeRevision: 0, expanded: new Set(), showCompanion: true, quiet: false, pets: 0, creatingHarness: false,
   refreshTree: () => set((s) => ({ treeRevision: s.treeRevision + 1 })),
   collapseTree: () => set({ expanded: new Set() }),
