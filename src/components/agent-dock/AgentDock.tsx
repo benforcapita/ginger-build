@@ -4,14 +4,17 @@ import { useSessionStore } from "@/stores/session-store";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { GingerMascot } from "@/components/presence/GingerMascot";
 import { SessionTabs } from "@/components/terminal/SessionTabs";
+import { useWorkbenchStore } from "@/stores/workbench-store";
 interface Harness { name: string; program: string; available: boolean }
-export function AgentDock({ launchRequest }: { launchRequest: number }) {
+export function AgentDock() {
   const sessions = useSessionStore((s) => s.sessions);
   const start = useSessionStore((s) => s.start);
   const busy = useSessionStore((s) => s.busy);
   const open = useWorkspaceStore((s) => s.status.open);
-  const [creating, setCreating] = useState(false);
-  const [showCompanion, setShowCompanion] = useState(true);
+  const creating = useWorkbenchStore((s) => s.creatingHarness);
+  const setCreating = (creatingHarness: boolean) => useWorkbenchStore.setState({ creatingHarness });
+  const showCompanion = useWorkbenchStore((s) => s.showCompanion);
+  const setShowCompanion = (showCompanion: boolean) => useWorkbenchStore.setState({ showCompanion });
   const [harnesses, setHarnesses] = useState<Harness[]>([]);
   const [selected, setSelected] = useState("custom");
   const [program, setProgram] = useState("");
@@ -21,11 +24,10 @@ export function AgentDock({ launchRequest }: { launchRequest: number }) {
     if (!isTauri()) return;
     void invoke<Harness[]>("terminal_harnesses").then((items) => { setHarnesses(items); setSelected(items.find((h) => h.available)?.program ?? "custom"); }).catch((e) => useSessionStore.getState().setError(String(e)));
   }, []);
-  useEffect(() => { if (launchRequest) setCreating(true); }, [launchRequest]);
   return <section className="agent-dock" aria-label="Ginger and agent harnesses">
     {showCompanion && <GingerMascot onMinimize={hasAgents ? () => setShowCompanion(false) : undefined} />}
     {!showCompanion && <div className="ginger-compact"><span className="accent">g.</span> Ginger’s here. Let’s build.<button onClick={() => setShowCompanion(true)}>Show Ginger</button></div>}
-    <header className="panel-header"><span>AGENT HARNESSES <span className="count">{sessions.filter((s) => s.kind === "agent").length}</span></span><button onClick={() => setCreating((v) => !v)} disabled={!open || busy} aria-label="New agent harness">{creating ? "−" : "+"}</button></header>
+    <header className="panel-header"><span>AGENT HARNESSES <span className="count">{sessions.filter((s) => s.kind === "agent").length}</span></span><button onClick={() => setCreating(!creating)} disabled={!open || busy} aria-label="New agent harness">{creating ? "−" : "+"}</button></header>
     {creating && <form className="harness-form" onSubmit={async (event) => {
       event.preventDefault();
       const executable = selected === "custom" ? program.trim() : selected;

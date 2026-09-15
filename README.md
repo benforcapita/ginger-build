@@ -9,7 +9,7 @@ A macOS desktop IDE with a terminal aesthetic, real Neovim, a project tree, inde
 - Run login shells alongside the editor with live input/output and pane resizing.
 - Start Claude Code, Codex, OpenCode, or a custom executable with an argument list in a separate harness tab. Installed programs are detected; each CLI handles its own authentication. Up to three live harnesses share the open workspace.
 - Pet Ginger, mute commentary, or minimize the portrait while harnesses run. Session counts and exit indicators reflect real processes.
-- Search working commands and open sessions with the command palette. Live session closure and app exit warn before stopping processes. Close tabs before switching workspaces.
+- Search files, folders, and every current workspace action with the command line (`⌘ K` or `⌘ P`). Live session closure and app exit warn before stopping processes. Close tabs before switching workspaces.
 
 ## Develop
 
@@ -34,10 +34,45 @@ pnpm tauri dev
 
 Ctrl keys pass through to Neovim and terminal programs.
 
+## Command line (⌘ K)
+
+Type a filename, part of its path, or an action name. Fuzzy matching works, so `agdock` finds `AgentDock.tsx`. Use `>` to search only actions or `/` to search files and folders. Arrow keys select a result; Enter runs it; Escape returns to your workspace.
+
+Available commands include opening a project, saving the active editor, starting shells and harnesses, focusing and closing individual sessions, refreshing or collapsing the tree, expanding individual folders, showing/minimizing/petting Ginger, muting commentary, dismissing errors, and quitting. Harness setup opens the existing keyboard-accessible executable/arguments form. Disabled commands explain what is needed to use them.
+
+File search includes hidden files and is refreshed each time you open the command line. It excludes `.git`, `node_modules`, `target`, `dist`, `build`, `.next`, and `.venv` directories. Directory symlinks are not traversed; file symlinks must remain inside the workspace. Indexing is bounded to 20,000 entries, with a notice for incomplete results. The first 100 matching results are shown; keep typing to narrow them.
+
+## Build a macOS installer
+
+On a Mac with Xcode Command Line Tools, Node.js (22.18+ for tests), pnpm, and Rust installed:
+
+```sh
+./scripts/build-dmg.sh
+# Faster development installer:
+./scripts/build-dmg.sh --debug
+# Equivalent package command:
+pnpm build:dmg
+```
+
+The script installs locked dependencies, builds the app, packages it with an Applications shortcut, and verifies the DMG. The result is in `artifacts/`. Transfer the DMG to another Mac, open it, and drag **Ginger Code.app** into **Applications**. Install Neovim (`brew install neovim`) and your chosen agent CLIs on that Mac separately.
+
+By default it builds for the current Mac's architecture. To build for another architecture, install the Rust target and pass it explicitly:
+
+```sh
+rustup target add x86_64-apple-darwin
+./scripts/build-dmg.sh --target x86_64-apple-darwin
+# Both Intel and Apple Silicon (requires both Rust targets):
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+./scripts/build-dmg.sh --target universal-apple-darwin
+```
+
+Cross-architecture builds require a compatible Xcode SDK and native dependencies. The app requires macOS 12 or newer. Without Apple signing/notarization credentials this is an unsigned development installer, which Gatekeeper may block. The script preserves Tauri signing environment configuration; it does not install certificates or change security settings.
+
 ## Build and verify
 
 ```sh
 pnpm build
+pnpm test
 pnpm tauri build --debug --bundles app
 cargo test --manifest-path src-tauri/Cargo.toml --lib
 cargo test --manifest-path src-tauri/Cargo.toml --lib neovim_edits -- --ignored

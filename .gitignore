@@ -29,3 +29,6 @@ Thumbs.db
 *.log
 # Generated Tauri schemas
 src-tauri/gen/
+
+# Local installers
+artifacts/

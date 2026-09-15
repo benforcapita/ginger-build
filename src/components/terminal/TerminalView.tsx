@@ -7,6 +7,7 @@ import "@xterm/xterm/css/xterm.css";
 
 type TerminalEvent = { type: "output"; data: number[] } | { type: "exit"; code: number | null };
 export function TerminalView({ id, active }: { id: number; active: boolean }) {
+  const focusRequest = useSessionStore((s) => s.focusRequest);
   const container = useRef<HTMLDivElement>(null);
   const fitRef = useRef<() => void>(() => {});
   const termRef = useRef<XTerm | null>(null);
@@ -52,10 +53,10 @@ export function TerminalView({ id, active }: { id: number; active: boolean }) {
     return () => { disposed = true; observer.disconnect(); input.dispose(); terminal.dispose(); termRef.current = null; };
   }, [id]);
   useEffect(() => {
-    if (active) {
-      const frame = requestAnimationFrame(() => { fitRef.current(); termRef.current?.focus(); });
-      return () => cancelAnimationFrame(frame);
+    if (active && (!focusRequest || focusRequest.id === id)) {
+      fitRef.current();
+      termRef.current?.focus();
     }
-  }, [active]);
-  return <div ref={container} className="terminal-view" hidden={!active} aria-label={`Terminal session ${id}`} />;
+  }, [active, focusRequest, id]);
+  return <div ref={container} className="terminal-view" onMouseDown={() => termRef.current?.focus()} hidden={!active} aria-label={`Terminal session ${id}`} />;
 }
