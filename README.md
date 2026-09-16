@@ -1,13 +1,13 @@
 # Ginger Code
 
-A macOS desktop IDE with a terminal aesthetic, a built-in editor with Vim keybindings, a project tree, independent CLI harness tabs, and Ginger: an orange-haired text-art code companion.
+A macOS desktop IDE with a terminal aesthetic, a built-in editor with Vim keybindings, a project tree, independent CLI harness tabs, and Ginger: an animated amber computer-art code companion.
 
 ## What works
 
 - Open a local folder and expand its file tree. Directories load on demand; refresh picks up filesystem changes. Links outside the open workspace are excluded.
 - Open files in Ginger’s CodeMirror editor. Vim mode is enabled by default: `i` to insert, `Esc` for Normal mode, `v` for Visual mode, `:w` to save, `:q` to close, and `:wq` to save and close. Neovim is not required; Neovim configuration and plugins do not apply. Toggle Vim mode through ⌘K.
 - Run login shells alongside the editor with live input/output and pane resizing.
-- Start Claude Code, Codex, OpenCode, or a custom executable with an argument list in a separate harness tab. Installed programs are detected; each CLI handles its own authentication. Up to three live harnesses share the open workspace.
+- Start Claude Code, Codex, OpenCode, Antigravity (`agy`), Pi (`pi`), or a custom executable with an argument list in a separate harness tab. The picker shows installation status and resolved executable paths, setup guides, editable arguments (one per line), and an exact command preview. Use Refresh harness detection after installing a CLI; each CLI handles its own authentication. Up to three live harnesses share the open workspace.
 - Pet Ginger, mute commentary, or minimize the portrait while harnesses run. Session counts and exit indicators reflect real processes.
 - Search files, folders, and every current workspace action with the command line (`⌘ K` or `⌘ P`). Live session closure and app exit warn before stopping processes. Close tabs before switching workspaces.
 
@@ -30,7 +30,10 @@ pnpm tauri dev
 | ⌘ ⇧ T | New shell |
 | ⌘ ⇧ N | New harness |
 
-Ctrl keys use Vim bindings in the editor and pass through to terminal programs.
+| ⌘ 1 / ⌘ 2 / ⌘ 3 / ⌘ 4 | Focus Files / Editor / Agents / Terminal |
+| Ctrl Tab / Ctrl ⇧ Tab | Next / previous tab across Editor → Agents → Terminal, wrapping |
+
+Focus shortcuts work inside editors and terminals. Other Ctrl keys use Vim bindings in the editor and pass through to terminal programs. Tab cycling follows the order within each group, independent of automatic pane centering. Use **Focus previously used tab** in ⌘K to jump back to the last session; every open session also has its own named Focus command. Focusing an empty pane selects its container without starting a process.
 
 ## Keyboard file tree
 

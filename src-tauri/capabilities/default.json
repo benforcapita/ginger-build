@@ -10,6 +10,7 @@
     "core:window:allow-destroy",
     "dialog:allow-open",
     "dialog:allow-ask",
-    "notification:allow-is-permission-granted"
+    "notification:allow-is-permission-granted",
+    "shell:allow-open"
   ]
 }

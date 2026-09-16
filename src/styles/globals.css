@@ -195,3 +195,8 @@ kbd { font: inherit; font-size: 10px; color: var(--fg-muted); }
 .movable-pane:not(.pane-slot-0) .portrait-button { float: left; width: 64px; margin: 4px 10px 0 0 !important; }
 .movable-pane:not(.pane-slot-0) .ginger-companion::after { content: ""; display: block; clear: both; }
 .movable-pane:not(.pane-slot-0) .companion-controls { min-height: 60px; flex-wrap: wrap; align-content: center; }
+
+.harness-status { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; font-size: 10px; overflow-wrap: anywhere; }
+.harness-preview { display: flex; flex-direction: column; gap: 8px; }
+.harness-preview code { padding: 10px; background: var(--bg); font-size: 10px; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.movable-pane:focus-visible { outline: 1px solid var(--accent); outline-offset: -2px; }

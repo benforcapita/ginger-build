@@ -1,3 +1,4 @@
+import { focusShortcut } from "@/tab-navigation";
 import { useEffect, useRef } from "react";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { Terminal as XTerm } from "@xterm/xterm";
@@ -25,7 +26,7 @@ export function TerminalView({ id, active }: { id: number; active: boolean }) {
     terminal.loadAddon(fit);
     terminal.open(element);
     termRef.current = terminal;
-    terminal.attachCustomKeyEventHandler((event) => !(event.metaKey && ["p", "o", "k", ...(event.shiftKey ? ["e"] : [])].includes(event.key.toLowerCase())) && !(event.metaKey && event.key.toLowerCase() === "s"));
+    terminal.attachCustomKeyEventHandler((event) => !focusShortcut(event) && !(event.metaKey && ["p", "o", "k", ...(event.shiftKey ? ["e"] : [])].includes(event.key.toLowerCase())) && !(event.metaKey && event.key.toLowerCase() === "s"));
     const report = (error: unknown) => { if (!disposed) useSessionStore.getState().setError(String(error)); };
     let inputQueue = Promise.resolve();
     const input = terminal.onData((data) => {

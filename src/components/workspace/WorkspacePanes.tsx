@@ -15,7 +15,7 @@ export function WorkspacePanes() {
   // Stable siblings: moving a pane changes CSS placement, never its React parent.
   return <>{panes.map(pane => {
     const slot = layout.order.indexOf(pane);
-    return <div key={pane} data-pane={pane} data-drag-id={pane} className={`movable-pane pane-slot-${slot} ${layout.focused === pane ? 'pane-focused' : ''} ${drag.dragging && drag.target === pane ? 'pane-drop-target' : ''}`}>
+    return <div key={pane} data-pane={pane} tabIndex={-1} aria-label={`${paneNames[pane]} pane`} data-drag-id={pane} className={`movable-pane pane-slot-${slot} ${layout.focused === pane ? 'pane-focused' : ''} ${drag.dragging && drag.target === pane ? 'pane-drop-target' : ''}`}>
       <div className="pane-arrangement">
         <button className="drag-handle" {...drag.handlers(pane)} aria-label={`Move ${paneNames[pane]} pane`} title="Drag to another pane to swap. Use left/right arrows to change position." onKeyDown={event => {
           if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;

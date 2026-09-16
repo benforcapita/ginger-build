@@ -108,11 +108,12 @@ pub fn terminal_launch(
 pub fn terminal_terminate_all(host: State<'_, TerminalHost>) { host.terminate_all(); }
 
 #[derive(Serialize)]
-pub struct HarnessInfo { pub name: String, pub program: String, pub available: bool }
+pub struct HarnessInfo { pub name: String, pub program: String, pub available: bool, pub executable: Option<String> }
 
 #[tauri::command]
 pub fn terminal_harnesses() -> Vec<HarnessInfo> {
-    [("Claude Code", "claude"), ("Codex", "codex"), ("OpenCode", "opencode")].into_iter().map(|(name, program)| HarnessInfo {
-        name: name.into(), program: program.into(), available: crate::terminal::resolve_program(program, std::path::Path::new("/")).is_ok(),
+    [("Claude Code", "claude"), ("Codex", "codex"), ("OpenCode", "opencode"), ("Antigravity", "agy"), ("Pi", "pi")].into_iter().map(|(name, program)| {
+        let executable = crate::terminal::resolve_program(program, std::path::Path::new("/")).ok().map(|path| path.to_string_lossy().into_owned());
+        HarnessInfo { name: name.into(), program: program.into(), available: executable.is_some(), executable }
     }).collect()
 }

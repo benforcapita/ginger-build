@@ -1,3 +1,4 @@
+import { cycleTab, focusShortcut, type FocusAction } from "@/tab-navigation";
 import { LanguageServers } from '@/components/editor/LanguageServers';
 import { useLanguageStore } from '@/stores/language-store';
 import { restartLanguageServers } from '@/editor/language-client';
@@ -33,6 +34,29 @@ export default function App() {
   const layout = useLayoutStore();
   const vimEnabled = useSessionStore(s => s.vim);
   const activeEditor = useSessionStore((s) => s.active.editor);
+  const previousTab = useRef<number | null>(null);
+  useEffect(() => useSessionStore.subscribe((state, before) => {
+    if (state.focusRequest?.id !== before.focusRequest?.id && before.focusRequest) previousTab.current = before.focusRequest.id;
+  }), []);
+  const focusTab = (id: number | null) => {
+    const state = useSessionStore.getState();
+    const tab = state.sessions.find(tab => tab.id === id);
+    if (tab) state.select(tab.kind, tab.id);
+  };
+  const navigate = (action: FocusAction) => {
+    const state = useSessionStore.getState();
+    if (action === 'tree') { useWorkbenchStore.getState().focusTree(); return; }
+    if (action === 'next' || action === 'previous') {
+      focusTab(cycleTab(state.sessions, state.focusRequest?.id ?? null, action === 'next' ? 1 : -1));
+      return;
+    }
+    const active = state.sessions.find(tab => tab.id === state.active[action]) ?? state.sessions.find(tab => tab.kind === action);
+    if (active) state.select(action, active.id);
+    else {
+      useLayoutStore.getState().focusPane(action);
+      document.querySelector<HTMLElement>(`[data-pane="${action}"]`)?.focus();
+    }
+  };
   const openHarness = () => useWorkbenchStore.setState({ creatingHarness: true });
   const [opening, setOpening] = useState(false);
   const native = isTauri();
@@ -86,6 +110,13 @@ export default function App() {
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
+      const focusAction = focusShortcut(e);
+      if (focusAction && !useLanguageStore.getState().open) {
+        e.preventDefault(); e.stopPropagation();
+        if (paletteOpen) flushSync(() => setPaletteOpen(false));
+        navigate(focusAction);
+        return;
+      }
       if (!e.metaKey) return;
       if (key === "p" || key === "k") { e.preventDefault(); togglePalette(); }
       if (key === "e" && e.shiftKey && workspace) {
@@ -99,8 +130,8 @@ export default function App() {
       if (e.shiftKey && key === "t" && workspace) { e.preventDefault(); void useSessionStore.getState().start("shell"); }
       if (e.shiftKey && key === "n" && workspace) { e.preventDefault(); useWorkbenchStore.setState({ creatingHarness: true }); }
     };
-    window.addEventListener("keydown", handle);
-    return () => window.removeEventListener("keydown", handle);
+    window.addEventListener("keydown", handle, true);
+    return () => window.removeEventListener("keydown", handle, true);
   }, [openFolder, save, workspace, togglePalette, paletteOpen]);
   const dismissError = () => { useSessionStore.getState().setError(null); useWorkspaceStore.setState({ error: null }); };
   const actions: PaletteAction[] = [
@@ -113,10 +144,14 @@ export default function App() {
     { id: "editor-search", title: "Find and replace in active file", keywords: "search text", run: () => { window.dispatchEvent(new Event("ginger-editor-search")); }, disabled: activeEditor === null, reason: "Open a file first" },
     { id: "editor-reload", title: "Reload active file from disk", keywords: "external changes conflict discard", run: () => { if (activeEditor !== null) return useSessionStore.getState().reload(activeEditor); }, disabled: activeEditor === null, reason: "Open a file first" },
     { id: "shell", title: "New terminal", keywords: "shell command", shortcut: "⌘ ⇧ T", run: () => useSessionStore.getState().start("shell"), disabled: !workspace || busy, reason: "Open a folder and wait for session startup" },
-    { id: "agent", title: "Start an agent harness", keywords: "claude codex opencode custom executable arguments", shortcut: "⌘ ⇧ N", run: openHarness, disabled: !workspace || busy, reason: "Open a folder and wait for session startup" },
+    { id: "agent", title: "Start an agent harness", keywords: "claude codex opencode antigravity agy pi custom executable arguments", shortcut: "⌘ ⇧ N", run: openHarness, disabled: !workspace || busy, reason: "Open a folder and wait for session startup" },
     { id: "cancel-agent", title: "Cancel harness setup", run: () => useWorkbenchStore.setState({ creatingHarness: false }), disabled: !workbench.creatingHarness, reason: "No harness setup is open" },
     { id: "refresh", title: "Refresh file tree and search", keywords: "reload rescan files", run: workbench.refreshTree, disabled: !workspace, reason: "Open a folder first" },
-    { id: "focus-tree", title: "Focus file tree", keywords: "explorer project vim navigation", shortcut: "⌘ ⇧ E", run: workbench.focusTree, disabled: !workspace, reason: "Open a folder first" },
+    { id: "focus-tree", title: "Focus file tree", keywords: "explorer project vim navigation", shortcut: "⌘ 1 / ⌘ ⇧ E", run: workbench.focusTree, disabled: !workspace, reason: "Open a folder first" },
+    ...(['editor', 'agent', 'shell'] as const).map((pane, index): PaletteAction => ({ id: `focus-${pane}`, title: `Focus ${paneNames[pane]}`, keywords: 'pane tab switch navigate', shortcut: `⌘ ${index + 2}`, run: () => navigate(pane) })),
+    { id: 'next-tab', title: 'Focus next tab', shortcut: 'Ctrl Tab', run: () => navigate('next'), disabled: !sessions.length },
+    { id: 'previous-tab', title: 'Focus previous tab in order', shortcut: 'Ctrl ⇧ Tab', run: () => navigate('previous'), disabled: !sessions.length },
+    { id: 'last-tab', title: 'Focus previously used tab', keywords: 'back last recent switch', run: () => focusTab(previousTab.current), disabled: !sessions.some(tab => tab.id === previousTab.current) },
     { id: "collapse", title: "Collapse all folders", keywords: "tree explorer", run: workbench.collapseTree, disabled: !workspace, reason: "Open a folder first" },
     { id: "companion", title: workbench.showCompanion ? "Minimize Ginger" : "Show Ginger", keywords: "mascot companion portrait", run: () => useWorkbenchStore.setState({ showCompanion: !workbench.showCompanion }) },
     { id: "quiet", title: workbench.quiet ? "Unmute Ginger commentary" : "Mute Ginger commentary", keywords: "quiet mascot", run: () => useWorkbenchStore.setState({ quiet: !workbench.quiet }) },
