@@ -3,32 +3,6 @@ import { useSessionStore } from "@/stores/session-store";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import "./ginger-mascot.css";
 import { useWorkbenchStore } from "@/stores/workbench-store";
-const HAIR = String.raw`               .:;;+x++:.
-           .;xXXXxxXXXXXXx;.
-        .;+XXXXXXxxXXXXXXXXX+.
-       :xXXXXx++xXXXXXXXXXXXXXX;
-      +XXXXx+;::;+XXxxXXXXXXXXXX+
-     ;XXXX+;::..:;+XXXxxXXXXXXXXX;
-    :XXXXx:..    .:+XXXxxxXXXXXXXx
-    +XXX+..        .;xXXXXxxXXXXXX
-    +XX;.     .       :+XXXXxxXXX+
-    ;Xx.  ...             ;xXXXx;
-     x: .:;;;:.    .:;;;:.  :XXx
-`;
-const FACE = String.raw`     +: ╭──────╮──╭──────╮  :x+
-     :: │  •   │  │  •   │  :;
-     .: ╰──────╯  ╰──────╯  :.
-      :.        .;         :
-       ;.       └─        .;
-        ::    .____.    .:
-          ;:.   ─    .:;
-         .+x+;......;+x+.
-`;
-const HOODIE = String.raw`       .;▓▓▓▓x;::::;x▓▓▓▓;.
-     .+▓▓▓▓▓▓▓▓x++x▓▓▓▓▓▓▓▓+.
-   .;▓▓▓▓▓▓▓▓▓▓▓\/▓▓▓▓▓▓▓▓▓▓▓;.
-   ▓▓▓▓▓▓▓▓▓▓▓▓▓||▓▓▓▓▓▓▓▓▓▓▓▓▓
-   ▓▓▓▓▓▓▓▓▓▓▓▓▓||▓▓▓▓▓▓▓▓▓▓▓▓▓`;
 export function GingerMascot({ onMinimize }: { onMinimize?: () => void }) {
   const sessions = useSessionStore((s) => s.sessions);
   const workspace = useWorkspaceStore((s) => s.status.workspace);
@@ -45,7 +19,7 @@ export function GingerMascot({ onMinimize }: { onMinimize?: () => void }) {
   return <div className={`ginger-companion ${petted ? "petted" : ""}`}>
     <div className="ginger-intro"><span className="version-tag">GINGER / 0.1</span><span className="presence-label"><i />{state}</span></div>
     <button className="portrait-button" onClick={pet} aria-label="Pet Ginger" title="Pet Ginger">
-      <pre className="ginger-portrait" aria-hidden="true"><span className="ginger-hair">{HAIR}</span><span className="ginger-face">{FACE}</span><span className="ginger-hoodie">{HOODIE}</span></pre>
+      <span className="ginger-portrait" aria-hidden="true"><span className="ginger-sprite" /></span>
       {petted && <span className="pet-heart" aria-hidden="true">♡</span>}
     </button>
     <div className="ginger-name"><h1>ginger<span>_</span></h1><span>your code companion</span></div>

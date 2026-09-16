@@ -123,7 +123,7 @@ kbd { font: inherit; font-size: 10px; color: var(--fg-muted); }
 .palette-item.selected { background: #27291f; color: #e6c699; }
 .palette-results > p { padding: 20px; font-size: 11px; }
 @media (max-width: 1100px) { .workspace-grid { grid-template-columns: 160px minmax(300px, 1.6fr) minmax(260px, 1fr); } .environment-badge, .workspace-actions button kbd, .panel-header > .muted { display: none; } .ginger-companion { padding: 16px !important; } .status-bar > div { gap: 10px; } }
-@media (max-height: 760px) { .ginger-portrait { font-size: 7px !important; } .ginger-companion { padding-top: 14px !important; padding-bottom: 10px !important; } .portrait-button { margin-top: 12px !important; } .ginger-name { margin: 10px 0 !important; } .agent-empty { padding: 17px; gap: 10px; } .ginger-speech { min-height: 0 !important; padding: 9px !important; } }
+@media (max-height: 760px) { .ginger-companion { padding-top: 14px !important; padding-bottom: 10px !important; } .portrait-button { margin-top: 12px !important; } .ginger-name { margin: 10px 0 !important; } .agent-empty { padding: 17px; gap: 10px; } .ginger-speech { min-height: 0 !important; padding: 9px !important; } }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
 
 .palette { width: min(760px, 90vw); }
@@ -154,7 +154,7 @@ kbd { font: inherit; font-size: 10px; color: var(--fg-muted); }
 .tab-drop-target { box-shadow: inset 3px 0 var(--accent); }
 .movable-pane:not(.pane-slot-0) .panel-header > .muted { display: none; }
 .movable-pane:not(.pane-slot-0) .ginger-companion { padding: 8px 12px !important; }
-.movable-pane:not(.pane-slot-0) .portrait-button, .movable-pane:not(.pane-slot-0) .ginger-speech, .movable-pane:not(.pane-slot-0) .ginger-name { display: none; }
+.movable-pane:not(.pane-slot-0) .ginger-speech, .movable-pane:not(.pane-slot-0) .ginger-name { display: none; }
 .movable-pane:not(.pane-slot-0) .agent-empty { padding: 12px; gap: 8px; }
 .movable-pane:not(.pane-slot-0) .editor-welcome { padding: 12px; overflow: auto; }
 .movable-pane:not(.pane-slot-0) .vim-mark { font-size: 20px; margin-bottom: 10px; }
@@ -190,3 +190,8 @@ kbd { font: inherit; font-size: 10px; color: var(--fg-muted); }
 .editor-rename { display: flex; gap: 8px; padding: 8px; font-size: 11px; align-items: center; }
 .editor-rename input { width: 160px; margin-left: 8px; }
 .cm-tooltip { z-index: 10; }
+
+/* Keep the companion visible in the compact side pane as well. */
+.movable-pane:not(.pane-slot-0) .portrait-button { float: left; width: 64px; margin: 4px 10px 0 0 !important; }
+.movable-pane:not(.pane-slot-0) .ginger-companion::after { content: ""; display: block; clear: both; }
+.movable-pane:not(.pane-slot-0) .companion-controls { min-height: 60px; flex-wrap: wrap; align-content: center; }
