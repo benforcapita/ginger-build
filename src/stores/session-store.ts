@@ -56,6 +56,7 @@ export const useSessionStore = create<Sessions>((set, get) => ({
     try {
       await invoke("workspace_save_file", { path: tab.path, text: snapshot, expected: tab.document.baseline });
       set(s => ({ sessions: s.sessions.map(t => t.id === id && t.document ? { ...t, document: savedDocument(t.document, snapshot), diskError: undefined } : t), error: null }));
+      window.dispatchEvent(new CustomEvent("ginger-file-saved", { detail: tab.path }));
       return true;
     } catch (e) { set({ error: String(e) }); return false; }
     finally { set(s => ({ sessions: s.sessions.map(t => t.id === id ? { ...t, saving: false } : t) })); }

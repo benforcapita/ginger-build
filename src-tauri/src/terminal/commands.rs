@@ -98,7 +98,7 @@ pub fn terminal_launch(
             let program = program.ok_or("choose a harness executable")?;
             host.launch(&root, &program, &args.unwrap_or_default(), TerminalOwner::Agent, None)
         }
-        "shell" => host.create(&root, None, TerminalOwner::User, None),
+        "shell" => if let Some(program) = program { host.launch(&root, &program, &args.unwrap_or_default(), TerminalOwner::User, None) } else { host.create(&root, None, TerminalOwner::User, None) },
         _ => return Err("unknown session kind".into()),
     }.map_err(|e| e.to_string())?;
     Ok(CreateTerminalResult { id })

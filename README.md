@@ -103,7 +103,7 @@ The local app bundle is created at `src-tauri/target/debug/bundle/macos/Ginger C
 
 ## Scope of this implementation
 
-This is a working development build, not a release candidate. Harnesses currently share the primary workspace; automatic worktree isolation, review/apply workflows, restart persistence, language-server integration, and native filesystem watching remain unfinished. The pre-existing Part II service modules remain in the repository, but nonexistent IPC commands are no longer registered as if implemented. Legacy modules still emit unused-code warnings.
+This is a working development build, not a release candidate. Harnesses currently share the primary workspace; automatic worktree isolation, review/apply workflows, restart persistence, native filesystem watching remain unfinished. The pre-existing Part II service modules remain in the repository, but nonexistent IPC commands are no longer registered as if implemented. Legacy modules still emit unused-code warnings.
 
 Editor files must be UTF-8 text up to 5 MiB. LF and CRLF line endings are preserved; mixed line endings are normalized to the first line’s style when edited. Unsaved changes show a dot on the tab and require confirmation before closing or quitting. Disk changes are checked every three seconds and on window focus: clean buffers reload, modified buffers show a conflict. Saves check disk contents again and use an atomic replacement. External writers can still race the final check/rename; this is not a filesystem transaction. Use “Reload active file from disk” to discard local edits after confirmation. Find and replace is available through ⌘K or ⌘F. Tab buffers and undo history are not persisted across app restarts. Session cleanup stops the original and foreground process groups; separately detached processes remain outside that guarantee. Terminal input is bounded; a single paste above 64 KiB or a full input queue produces an error rather than blocking every session.
 
@@ -112,3 +112,25 @@ UI and stream integration follow the [Tauri channel API](https://v2.tauri.app/de
 ## License
 
 MIT
+
+
+## Language servers and completion
+
+Syntax highlighting loads automatically for recognized extensions. Plain-text word suggestions work without installing a server, including in Vim Insert mode. Use **⌘K → Show autocomplete suggestions** (or Ctrl-Space) to request suggestions explicitly.
+
+Open **⌘K → Language servers: status and setup** to see installed tools and connection status. Click **Install in terminal** for the language you need, wait for the command to finish, then **Restart language servers**. Node-based servers need Node.js/npm. Rust needs a rustup-managed toolchain. These tools are separate from the DMG.
+
+| Files | Server | Installation |
+| --- | --- | --- |
+| JS / JSX / TS / TSX / MJS / CJS / MTS / CTS | typescript-language-server | `npm install --prefix ~/.ginger/language-servers typescript@6.0.3 typescript-language-server` |
+| Python / PYI | Pyright | `npm install --prefix ~/.ginger/language-servers pyright` |
+| Rust | rust-analyzer | `rustup component add rust-analyzer rust-src` |
+| JSON / JSONC | VS Code JSON language server | `npm install --prefix ~/.ginger/language-servers vscode-langservers-extracted` |
+
+A compatible project TypeScript installation takes precedence over the managed TypeScript 6.0.3 fallback. TypeScript 7 packages without `tsserver.js` cannot supply the fallback used by this server. Rust projects should include Cargo.toml; Python projects can use pyrightconfig.json or pyproject.toml. JSON schema completion uses a file's `$schema` declaration when provided.
+
+The command palette exposes diagnostics, definitions, references, cross-file rename, formatting, and signature help. Standard shortcuts include F12 for definition, Shift-F12 for references, F2 for rename, Shift-Option-F for formatting, and ⌘⇧Space for signature help. Availability depends on the server: Pyright, for example, supplies analysis but no formatter. Hover over a symbol for documentation.
+
+Rename and format edit buffers without writing to disk. Save each changed tab with ⌘S or :w. Cross-file edits are restricted to the current workspace; unsupported file creation/renaming operations are rejected. Completion and diagnostics synchronize unsaved edits. One server per language family is shared across tabs, and connections stop on workspace changes or app close. Servers with missing dependencies or startup failures leave the editor usable; inspect their message in the setup panel and restart after repair.
+
+Optional installed-server smoke tests: `node scripts/smoke-language-servers.mjs`. These create and remove a temporary workspace and check real completions and diagnostics for all four servers.

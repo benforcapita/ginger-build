@@ -206,7 +206,7 @@ impl TerminalHost {
     }
 }
 
-fn execution_path() -> std::ffi::OsString {
+pub(crate) fn execution_path() -> std::ffi::OsString {
     let current = std::env::var_os("PATH").unwrap_or_default();
     let mut paths: Vec<PathBuf> = std::env::split_paths(&current).collect();
     if let Some(home) = dirs::home_dir() {

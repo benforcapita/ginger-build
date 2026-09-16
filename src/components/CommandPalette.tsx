@@ -34,7 +34,7 @@ export function CommandPalette({ actions, onClose, returnFocus }: { actions: Pal
     ...actions,
     ...(files?.entries ?? []).map((entry): PaletteAction => ({
       id: `path:${entry.path}`, title: entry.path, kind: entry.is_dir ? "directory" : "file",
-      shortcut: entry.is_dir ? expanded.has(entry.path) ? "Collapse folder" : "Expand folder" : "Open in Neovim",
+      shortcut: entry.is_dir ? expanded.has(entry.path) ? "Collapse folder" : "Expand folder" : "Open in editor",
       disabled: !entry.is_dir && busy, reason: "A session is starting",
       run: () => entry.is_dir ? useWorkbenchStore.getState().toggleDirectory(entry.path) : useSessionStore.getState().start("editor", { path: entry.path }),
     })),

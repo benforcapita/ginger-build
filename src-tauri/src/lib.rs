@@ -1,3 +1,4 @@
+mod language_servers;
 mod action;
 mod agent;
 mod agent_adapter;
@@ -165,6 +166,7 @@ pub fn run() {
             app.manage(workspace_svc);
 
             app.manage(TerminalHost::default());
+            app.manage(language_servers::LanguageServers::default());
 
             let git_svc = GitService::new();
             app.manage(git_svc);
@@ -319,6 +321,7 @@ pub fn run() {
             editor_commands::editor_start, editor_commands::editor_stop, editor_commands::editor_status,
             workspace::documents::workspace_read_file, workspace::documents::workspace_save_file,
             workspace_commands::workspace_file_index, workspace_commands::workspace_list_directory, workspace_commands::workspace_open, workspace_commands::workspace_close, workspace_commands::workspace_status, workspace_commands::workspace_set_pane_state,
+            language_servers::language_server_start, language_servers::language_server_send, language_servers::language_server_ack, language_servers::language_server_stop, language_servers::language_server_status, language_servers::language_servers_stop_all,
             terminal_commands::terminal_launch, terminal_commands::terminal_subscribe, terminal_commands::terminal_harnesses, terminal_commands::terminal_terminate_all, terminal_commands::terminal_create, terminal_commands::terminal_write, terminal_commands::terminal_resize, terminal_commands::terminal_terminate, terminal_commands::terminal_list,
             git_commands::git_status, git_commands::git_is_repo, git_commands::git_branch, git_commands::git_create_worktree, git_commands::git_remove_worktree, git_commands::git_head_revision, git_commands::git_diff, git_commands::git_apply_patch, git_commands::git_cherry_pick,
             agent_commands::agent_create, agent_commands::agent_start, agent_commands::agent_complete, agent_commands::agent_get, agent_commands::agent_list, agent_commands::agent_remove, agent_commands::agent_active_count,
@@ -334,6 +337,7 @@ pub fn run() {
         .on_window_event(|window, event| {
             if matches!(event, tauri::WindowEvent::Destroyed) {
                 window.state::<TerminalHost>().terminate_all();
+                window.state::<language_servers::LanguageServers>().stop_all();
             }
         })
         .build(tauri::generate_context!())

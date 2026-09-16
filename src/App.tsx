@@ -1,3 +1,6 @@
+import { LanguageServers } from '@/components/editor/LanguageServers';
+import { useLanguageStore } from '@/stores/language-store';
+import { restartLanguageServers } from '@/editor/language-client';
 import { flushSync } from "react-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
@@ -14,6 +17,7 @@ import { useWorkbenchStore } from "@/stores/workbench-store";
 import { useSessionStore } from "@/stores/session-store";
 
 export default function App() {
+  const languagePanel = useLanguageStore(s => s.open);
   const workspace = useWorkspaceStore((s) => s.status.workspace);
   const workspaceError = useWorkspaceStore((s) => s.error);
   const sessions = useSessionStore((s) => s.sessions);
@@ -48,6 +52,7 @@ export default function App() {
         const tabs = useSessionStore.getState().sessions;
         if (tabs.some(s => s.saving)) { useSessionStore.getState().setError("Wait for files to finish saving before quitting."); return; }
         if (tabs.some(s => s.document ? s.document.text !== s.document.baseline : !s.exited) && !await ask("Quit Ginger? Unsaved file changes will be discarded and running sessions will stop.", { title: "Quit Ginger Code", kind: "warning" })) return;
+        await invoke("language_servers_stop_all");
         await invoke("terminal_terminate_all");
         await getCurrentWindow().destroy();
       } catch (e) { useSessionStore.getState().setError(String(e)); }
@@ -70,7 +75,7 @@ export default function App() {
     setOpening(true);
     try {
       const path = await chooseFolder({ directory: true, multiple: false, title: "Open a project in Ginger" });
-      if (typeof path === "string") { state.setError(null); await useWorkspaceStore.getState().open(path); useWorkbenchStore.getState().collapseTree(); }
+      if (typeof path === "string") { await restartLanguageServers(); state.setError(null); await useWorkspaceStore.getState().open(path); useWorkbenchStore.getState().collapseTree(); }
     } catch (e) { state.setError(String(e)); }
     finally { setOpening(false); }
   }, [native, opening]);
@@ -101,6 +106,9 @@ export default function App() {
   const actions: PaletteAction[] = [
     { id: "folder", title: "Open folder", keywords: "project workspace switch", shortcut: "⌘ O", run: openFolder, disabled: opening || busy, reason: "Wait for the current operation" },
     { id: "save", title: "Save active file", shortcut: "⌘ S", run: save, disabled: !sessions.some((s) => s.id === activeEditor && !s.exited), reason: "Open an editor first" },
+    { id: "language-servers", title: "Language servers: status and setup", keywords: "lsp autocomplete diagnostics install typescript python rust json", run: () => useLanguageStore.setState({ open: true }), disabled: !workspace, reason: "Open a folder first" },
+    { id: "language-restart", title: "Restart language servers", keywords: "lsp reconnect", run: restartLanguageServers, disabled: !workspace, reason: "Open a folder first" },
+    ...Object.entries({ complete: 'Show autocomplete suggestions', diagnostics: 'Show errors and warnings', definition: 'Go to definition', references: 'Find references', rename: 'Rename symbol across files', format: 'Format document', signature: 'Show function signature' }).map(([id, title]): PaletteAction => ({ id: `language-${id}`, title, keywords: 'editor language server code intelligence', run: () => { window.dispatchEvent(new CustomEvent('ginger-editor-action', { detail: id })); }, disabled: activeEditor === null, reason: 'Open a file first' })),
     { id: "vim-mode", title: vimEnabled ? "Disable Vim mode" : "Enable Vim mode", keywords: "editor keybindings normal insert visual", run: () => useSessionStore.getState().toggleVim() },
     { id: "editor-search", title: "Find and replace in active file", keywords: "search text", run: () => { window.dispatchEvent(new Event("ginger-editor-search")); }, disabled: activeEditor === null, reason: "Open a file first" },
     { id: "editor-reload", title: "Reload active file from disk", keywords: "external changes conflict discard", run: () => { if (activeEditor !== null) return useSessionStore.getState().reload(activeEditor); }, disabled: activeEditor === null, reason: "Open a file first" },
@@ -134,6 +142,7 @@ export default function App() {
     {(error || workspaceError) && <div className="error-banner" role="alert"><span>{error ?? workspaceError}</span><button aria-label="Dismiss error" onClick={dismissError}>×</button></div>}
     <div className="workspace-grid"><Explorer onOpenFolder={() => { void openFolder(); }} /><WorkspacePanes /></div>
     <footer className="status-bar"><div><span className="status-brand">GINGER</span><span>{workspace ? workspace.display_name : "No workspace"}</span><span className="status-divider">/</span><span>FILE EDITOR + CLI HARNESSES</span></div><div><span><i className="dot" /> {liveAgents} live {liveAgents === 1 ? "harness" : "harnesses"}</span><span>{sessions.length} sessions</span><span className="accent">{busy ? "STARTING…" : "LET’S BUILD SOMETHING."}</span></div></footer>
+    {languagePanel && <LanguageServers />}
     {paletteOpen && <CommandPalette returnFocus={paletteReturnFocus.current} actions={actions} onClose={() => setPaletteOpen(false)} />}
   </main>;
 }
